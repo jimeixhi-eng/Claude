@@ -1,0 +1,126 @@
+'use strict';
+// データベース（SQLite）。在庫の「正本」はここだけに置き、
+// 公開サイト・スタッフアプリ・一括取り込みはすべてここを読み書きする。
+const path = require('node:path');
+const fs = require('node:fs');
+const { DatabaseSync } = require('node:sqlite');
+
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+fs.mkdirSync(path.join(DATA_DIR, 'uploads'), { recursive: true });
+
+const db = new DatabaseSync(process.env.DB_PATH || path.join(DATA_DIR, 'exotic-supply.db'));
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  PRAGMA foreign_keys = ON;
+
+  CREATE TABLE IF NOT EXISTS items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    no          TEXT NOT NULL UNIQUE,          -- 管理番号
+    category    TEXT NOT NULL DEFAULT '',      -- 分類（ヤモリ・トカゲ・ヘビ…）
+    species     TEXT NOT NULL,                 -- 種名
+    morph       TEXT NOT NULL DEFAULT '',      -- モルフ
+    sex         TEXT NOT NULL DEFAULT '',      -- 性別
+    size        TEXT NOT NULL DEFAULT '',      -- サイズ
+    origin      TEXT NOT NULL DEFAULT '',      -- CB / WB / 産地など
+    birth       TEXT NOT NULL DEFAULT '',      -- ハッチ日・生年月日
+    arrived_at  TEXT NOT NULL,                 -- 入荷日 YYYY-MM-DD
+    price       INTEGER,                       -- 税込価格（円）
+    price_ask   INTEGER NOT NULL DEFAULT 0,    -- 1 = 価格非公開（ASK）
+    status      TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','sold','hidden')),
+    sold_at     TEXT,
+    note        TEXT NOT NULL DEFAULT '',
+    photos      TEXT NOT NULL DEFAULT '[]',    -- JSON 配列（URL）
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS items_status ON items(status, arrived_at);
+
+  CREATE TABLE IF NOT EXISTS users (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    login      TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    role       TEXT NOT NULL CHECK (role IN ('owner','staff')),
+    pass_hash  TEXT NOT NULL,
+    active     INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS logs (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    at        TEXT NOT NULL DEFAULT (datetime('now')),
+    user_id   INTEGER,
+    user_name TEXT NOT NULL DEFAULT '',
+    item_id   INTEGER,
+    item_no   TEXT NOT NULL DEFAULT '',
+    action    TEXT NOT NULL,
+    detail    TEXT NOT NULL DEFAULT '{}'
+  );
+  CREATE INDEX IF NOT EXISTS logs_at ON logs(at);
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+`);
+
+const STATUSES = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+const ROLE_LIMITS = { owner: 2, staff: 20 };
+
+const DEFAULT_SETTINGS = {
+  shopName: 'エキゾチックサプライ',
+  tagline: '爬虫類・両生類の専門店',
+  address: '',
+  hours: '',
+  holidays: '',
+  phone: '',
+  lineUrl: '',
+  lineId: '',
+  mapUrl: '',
+  eventInfo: '',
+  notice: '',
+  // 動物取扱業の標識（法定表示）
+  bizName: '',
+  regNo: '',
+  regDate: '',
+  regExpiry: '',
+  regType: '販売',
+  manager: '',
+  // 表示ルール
+  newDays: 14,        // 入荷から何日間「新着」扱いにするか
+  soldVisibleDays: 7, // 売約済みを何日間サイトに残すか
+  categories: ['ヤモリ', 'トカゲ', 'ヘビ', 'カメ', '両生類', 'その他'],
+};
+
+function getSettings() {
+  const out = { ...DEFAULT_SETTINGS };
+  for (const row of db.prepare('SELECT key, value FROM settings').all()) {
+    try { out[row.key] = JSON.parse(row.value); } catch { /* 壊れた値は既定値のまま */ }
+  }
+  return out;
+}
+
+function saveSettings(patch) {
+  const stmt = db.prepare('INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  for (const [k, v] of Object.entries(patch)) {
+    if (k in DEFAULT_SETTINGS) stmt.run(k, JSON.stringify(v));
+  }
+  return getSettings();
+}
+
+function rowToItem(r) {
+  if (!r) return null;
+  return { ...r, price_ask: !!r.price_ask, photos: JSON.parse(r.photos || '[]') };
+}
+
+function tx(fn) {
+  db.exec('BEGIN');
+  try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+module.exports = { db, DATA_DIR, STATUSES, ROLE_LIMITS, DEFAULT_SETTINGS, getSettings, saveSettings, rowToItem, tx };
