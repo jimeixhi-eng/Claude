@@ -33,6 +33,7 @@ const html = (res, body, status = 200) => res.status(status).type('html').setHea
 app.get('/', (req, res) => html(res, views.home(getSettings())));
 app.get('/stock', (req, res) => html(res, views.stock(getSettings(), req.query)));
 app.get('/shop', (req, res) => html(res, views.shop(getSettings())));
+app.get('/category', (req, res) => html(res, views.categoryPage(getSettings())));
 app.get('/kaitori', (req, res) => html(res, views.buyback(getSettings())));
 app.get('/item/:no', (req, res) => {
   const it = items.getByNo(req.params.no);
@@ -48,7 +49,7 @@ app.get('/robots.txt', (req, res) => {
 });
 app.get('/sitemap.xml', (req, res) => {
   const base = siteUrl(req);
-  const urls = ['/', '/stock', '/kaitori', '/shop', ...items.listPublic({ status: 'available' }).map((it) => `/item/${encodeURIComponent(it.no)}`)];
+  const urls = ['/', '/category', '/stock', '/kaitori', '/shop', ...items.listPublic({ status: 'available' }).map((it) => `/item/${encodeURIComponent(it.no)}`)];
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${views.esc(base + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
 });
 

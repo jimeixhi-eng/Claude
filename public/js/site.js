@@ -4,6 +4,14 @@
   const pill = document.getElementById('livePill');
   const text = document.getElementById('liveText');
 
+  // 「生体一覧」メニューの開け閉め
+  const drawer = document.getElementById('drawer');
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-drawer-open]')) { drawer.hidden = false; document.body.style.overflow = 'hidden'; return; }
+    if (e.target.closest('[data-drawer-close]')) { drawer.hidden = true; document.body.style.overflow = ''; }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawer && !drawer.hidden) { drawer.hidden = true; document.body.style.overflow = ''; } });
+
   // 詳細ページの写真切り替え
   document.addEventListener('click', (e) => {
     const b = e.target.closest('.gallery-thumbs button');

@@ -45,9 +45,10 @@
       const cut = new Date(Date.now() - (Number(DB.settings.soldVisibleDays) || 0) * 864e5).toISOString().replace('T', ' ').slice(0, 19);
       return (it.sold_at || '') >= cut;
     },
-    listPublic({ category, status, q, sort } = {}) {
+    listPublic({ category, species, status, q, sort } = {}) {
       let list = DB.items.filter(items.visible);
       if (category) list = list.filter((i) => i.category === category);
+      if (species) list = list.filter((i) => i.species === species);
       if (status === 'available' || status === 'sold') list = list.filter((i) => i.status === status);
       if (q) list = list.filter((i) => i.species.includes(q) || i.morph.includes(q) || i.no === q || i.note.includes(q));
       const price = (dir) => (a, b) => (a.price_ask - b.price_ask) || ((a.price == null) - (b.price == null)) || dir * ((a.price ?? 0) - (b.price ?? 0));
@@ -58,6 +59,21 @@
     isNew: (it) => it.status === 'available' && it.arrived_at >= daysAgo(Number(DB.settings.newDays) || 14),
     listNewArrivals(limit = 12) {
       return DB.items.filter(items.isNew).sort((a, b) => b.arrived_at.localeCompare(a.arrived_at) || b.id - a.id).slice(0, limit).map(clone);
+    },
+    speciesCounts() {
+      const m = new Map();
+      for (const i of DB.items) if (i.status === 'available') { const k = `${i.category}\u0000${i.species}`; m.set(k, (m.get(k) || 0) + 1); }
+      return [...m].map(([k, n]) => { const [category, species] = k.split('\u0000'); return { category, species, n }; })
+        .sort((a, b) => a.category.localeCompare(b.category, 'ja') || b.n - a.n || a.species.localeCompare(b.species, 'ja'));
+    },
+    newArrivalSummary(maxDays = 8) {
+      const since = daysAgo(Number(DB.settings.newDays) || 14);
+      const m = new Map();
+      for (const i of DB.items) if (i.status === 'available' && i.arrived_at >= since) { const k = `${i.arrived_at}\u0000${i.category}\u0000${i.species}`; m.set(k, (m.get(k) || 0) + 1); }
+      const rows = [...m].map(([k, n]) => { const [arrived_at, category, species] = k.split('\u0000'); return { arrived_at, category, species, n }; })
+        .sort((a, b) => b.arrived_at.localeCompare(a.arrived_at) || a.category.localeCompare(b.category, 'ja') || b.n - a.n);
+      const days = [...new Set(rows.map((r) => r.arrived_at))].slice(0, maxDays);
+      return rows.filter((r) => days.includes(r.arrived_at));
     },
     countsPublic() {
       const out = {};
@@ -137,6 +153,7 @@
     if (items.getByNo(no)) throw new HttpError(409, `管理番号 ${no} は既に使われています`);
     const it = { id: DB.seq++, no, category: '', species: '', morph: '', sex: '', size: '', origin: '', birth: '', arrived_at: jstToday(), price: null, price_ask: false, status: 'available', sold_at: null, note: '', photos: [], created_at: stamp(), updated_at: stamp() };
     applyFields(it, input);
+    if (!it.category) it.category = importer.guessCategory(`${it.species} ${it.morph}`, DB.settings.categories);
     if (STATUSES[input.status]) it.status = input.status;
     if (it.status === 'sold') it.sold_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
     DB.items.push(it);
@@ -307,6 +324,7 @@
     const s = DB.settings;
     let html;
     if (u.pathname === '/') html = views.home(s);
+    else if (u.pathname === '/category') html = views.categoryPage(s);
     else if (u.pathname === '/stock') html = views.stock(s, q);
     else if (u.pathname === '/shop') html = views.shop(s);
     else if (u.pathname === '/kaitori') html = views.buyback(s);
@@ -330,7 +348,11 @@
   function siteRefresh() {
     clearTimeout(site.timer);
     site.timer = setTimeout(() => {
+      const drawerOpen = site.root.getElementById('drawer')?.hidden === false;
+      const openCats = [...site.root.querySelectorAll('details[open] > summary span')].map((el) => el.textContent);
       navigate(site.route, true);
+      if (drawerOpen) site.root.getElementById('drawer').hidden = false;
+      site.root.querySelectorAll('details > summary span').forEach((el) => { if (openCats.includes(el.textContent)) el.closest('details').open = true; });
       for (const no of site.changed) site.root.querySelectorAll(`[data-no="${CSS.escape(no)}"]`).forEach((el) => el.classList.add('changed'));
       site.changed.clear();
       const pill = site.root.getElementById('livePill');
@@ -343,6 +365,9 @@
     site.host = document.getElementById('siteScreen');
     Object.assign(site, mount(site.host, __ES.cssSite));
     site.root.addEventListener('click', (e) => {
+      const drawer = site.root.getElementById('drawer');
+      if (e.target.closest('[data-drawer-open]')) { drawer.hidden = false; return; }
+      if (e.target.closest('[data-drawer-close]')) { drawer.hidden = true; return; }
       const thumb = e.target.closest('.gallery-thumbs button');
       if (thumb) {
         site.root.getElementById('mainPhoto').src = thumb.dataset.src;
@@ -353,6 +378,7 @@
       if (!a) return;
       const href = a.getAttribute('href');
       if (href.startsWith('/')) { e.preventDefault(); navigate(href); }
+      else if (href.startsWith('#')) { e.preventDefault(); site.root.getElementById(href.slice(1))?.scrollIntoView(); }
       else if (/^tel:/.test(href)) { e.preventDefault(); toastOuter(`電話番号 ${href.slice(4)}（デモでは発信しません）`); }
     });
     site.root.addEventListener('submit', (e) => {

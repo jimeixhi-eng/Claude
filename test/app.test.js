@@ -145,8 +145,10 @@ test('文章の読み取り', () => {
   assert.equal(r.price, 18000);
   const t = parseText('【新入荷】\n\n管理番号：7\n種名：ギリシャリクガメ\n価格：ASK\n');
   assert.equal(t.rows.length, 1);
-  assert.equal(t.rows[0].category, 'カメ');
-  assert.equal(parseLine('No.9 パンサーカメレオン ♂ 30000円').category, 'トカゲ');
+  assert.equal(t.rows[0].category, '陸ガメ');
+  assert.equal(parseLine('No.9 パンサーカメレオン ♂ 30000円').category, 'カメレオン・ヒメカメレオン');
+  assert.equal(parseLine('No.10 ヒョウモントカゲモドキ ♂ 9800円').category, 'トカゲモドキ');
+  assert.equal(parseLine('No.11 アカメカブトトカゲ ♀ 9800円').category, 'トカゲ');
 });
 
 test('取り込み：番号なしの行の自動採番が、同じリスト内の番号とぶつからない', async () => {

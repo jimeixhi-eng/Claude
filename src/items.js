@@ -25,11 +25,12 @@ function publicVisibleSql() {
   return { where: `(status = 'available' OR (status = 'sold' AND sold_at >= datetime('now', ?)))`, params: [`-${Number(soldVisibleDays) || 0} days`] };
 }
 
-function listPublic({ category, status, q, sort, sex } = {}) {
+function listPublic({ category, species, status, q, sort, sex } = {}) {
   const vis = publicVisibleSql();
   const where = [vis.where];
   const params = [...vis.params];
   if (category) { where.push('category = ?'); params.push(category); }
+  if (species) { where.push('species = ?'); params.push(species); }
   if (status === 'available' || status === 'sold') { where.push('status = ?'); params.push(status); }
   if (sex) { where.push('sex = ?'); params.push(sex); }
   if (q) {
@@ -56,6 +57,21 @@ function isNew(item) {
   const { newDays } = getSettings();
   const since = new Date(Date.now() + 9 * 3600e3 - (Number(newDays) || 14) * 864e5).toISOString().slice(0, 10);
   return item.status === 'available' && item.arrived_at >= since;
+}
+
+// 分類ごと・種名ごとの販売中の匹数（生体カテゴリのメニュー用）
+function speciesCounts() {
+  return db.prepare(`SELECT category, species, COUNT(*) AS n FROM items WHERE status = 'available' GROUP BY category, species ORDER BY category, n DESC, species`).all();
+}
+
+// 新入荷のまとめ：入荷日ごと・種名ごとの匹数（トップページの文字の一覧用）
+function newArrivalSummary(maxDays = 8) {
+  const { newDays } = getSettings();
+  const since = new Date(Date.now() + 9 * 3600e3 - (Number(newDays) || 14) * 864e5).toISOString().slice(0, 10);
+  const rows = db.prepare(`SELECT arrived_at, category, species, COUNT(*) AS n FROM items WHERE status = 'available' AND arrived_at >= ?
+    GROUP BY arrived_at, category, species ORDER BY arrived_at DESC, category, n DESC`).all(since);
+  const days = [...new Set(rows.map((r) => r.arrived_at))].slice(0, maxDays);
+  return rows.filter((r) => days.includes(r.arrived_at));
 }
 
 function countsPublic() {
@@ -132,6 +148,7 @@ function create(user, input, { silent = false } = {}) {
   assertCanEdit(user, { price: 1 });
   const f = normalize(input);
   if (!f.species) throw new HttpError(400, '種名は必須です');
+  if (!f.category) f.category = require('./importer').guessCategory(`${f.species} ${f.morph || ''}`, getSettings().categories);
   const no = String(input.no ?? '').trim() || nextNo();
   if (getByNo(no)) throw new HttpError(409, `管理番号 ${no} は既に使われています`);
   const status = STATUSES[input.status] ? input.status : 'available';
@@ -219,6 +236,6 @@ function todayStats() {
 }
 
 module.exports = {
-  HttpError, getByNo, listPublic, listNewArrivals, listStaff, countsPublic, isNew, setStatus,
+  HttpError, getByNo, listPublic, listNewArrivals, listStaff, countsPublic, speciesCounts, newArrivalSummary, isNew, setStatus,
   create, update, remove, importRows, recentLogs, todayStats, nextNo, today,
 };
