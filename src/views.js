@@ -49,11 +49,37 @@ const ICONS = {
   shop: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
   line: '<path d="M12 4C7 4 3 7.2 3 11.2c0 3.6 3.2 6.6 7.5 7.1l-.5 2.7 3.4-2.6c4.3-.4 7.6-3.4 7.6-7.2C21 7.2 17 4 12 4z"/>',
   tel: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  buyback: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+  x: '<path d="M4 4l16 16M20 4 4 20"/>',
+  insta: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
 };
+
+// X（旧Twitter）・Instagram へのリンク
+function snsLinks(s, cls = 'sns') {
+  const links = [
+    s.twitterUrl && `<a class="sns-x" href="${esc(s.twitterUrl)}" target="_blank" rel="noopener">${icon('x')}<span>X（旧Twitter）<small>最新情報はこちら</small></span></a>`,
+    s.instagramUrl && `<a class="sns-insta" href="${esc(s.instagramUrl)}" target="_blank" rel="noopener">${icon('insta')}<span>Instagram<small>生体の写真を投稿中</small></span></a>`,
+  ].filter(Boolean);
+  return links.length ? `<div class="${cls}">${links.join('')}</div>` : '';
+}
+
+// 設定の文章を段落と箇条書きにする（「・」で始まる行が箇条書き）
+function richText(text) {
+  const out = [];
+  let list = [];
+  const flush = () => { if (list.length) out.push(`<ul>${list.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`); list = []; };
+  for (const line of String(text || '').split('\n')) {
+    const t = line.trim();
+    if (/^[・•\-]/.test(t)) list.push(t.replace(/^[・•\-]\s*/, ''));
+    else { flush(); if (t) out.push(`<p>${esc(t)}</p>`); }
+  }
+  flush();
+  return out.join('');
+}
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
 function layout(s, { title, description, body, path = '/', image }) {
-  const nav = [['/', 'トップ', 'home'], ['/stock', '在庫一覧', 'stock'], ['/stock?sort=new', '新入荷', 'new'], ['/shop', 'アクセス・営業時間', 'shop']]
+  const nav = [['/', 'トップ', 'home'], ['/stock', '在庫一覧', 'stock'], ['/stock?sort=new', '新入荷', 'new'], ['/kaitori', '買取・下取り', 'buyback'], ['/shop', 'アクセス・営業時間', 'shop']]
     .map(([href, label, ic]) => `<a href="${href}"${(href === '/' ? path === '/' : href === '/stock' ? path.startsWith('/stock') || path.startsWith('/item') : path === href) ? ' aria-current="page"' : ''}>${icon(ic)}<span>${label}</span></a>`).join('');
   const hbtns = [
     s.lineUrl && `<a class="hbtn" href="${esc(s.lineUrl)}" target="_blank" rel="noopener">${icon('line')}<span>LINEで<br>お問合せ</span></a>`,
@@ -88,6 +114,7 @@ ${s.notice ? `<div class="notice"><div class="wrap">${esc(s.notice)}</div></div>
 <footer class="site-footer">
   <div class="wrap">
     <p class="foot-buy">ご購入は店舗、またはイベント会場にてお願いいたします。</p>
+    <p class="foot-links"><a href="/stock">在庫一覧</a><a href="/kaitori">生体の買取・下取り</a><a href="/shop">アクセス・営業時間</a>${s.twitterUrl ? `<a href="${esc(s.twitterUrl)}" target="_blank" rel="noopener">X（旧Twitter）</a>` : ''}${s.instagramUrl ? `<a href="${esc(s.instagramUrl)}" target="_blank" rel="noopener">Instagram</a>` : ''}</p>
     ${legalHtml(s)}
     <p class="copy">© ${new Date().getFullYear()} ${esc(s.shopName)}</p>
   </div>
@@ -146,6 +173,16 @@ function home(s) {
     <p>ご購入は<strong>店舗、またはイベント会場</strong>にてお願いいたします。<br>在庫・生体についてのお問い合わせはLINEまたはお電話でどうぞ。</p>
     ${contactButtons(s)}
     ${s.eventInfo ? `<div class="event"><h3>イベント出店情報</h3><p>${esc(s.eventInfo).replace(/\n/g, '<br>')}</p></div>` : ''}
+  </section>
+
+  ${s.twitterUrl || s.instagramUrl ? `<section class="wrap section">
+    <div class="section-head"><h2>最新情報はSNSで</h2></div>
+    ${snsLinks(s)}
+  </section>` : ''}
+
+  <section class="wrap section">
+    <div class="section-head"><h2>生体の買取・下取り</h2><a href="/kaitori">詳しく見る →</a></div>
+    <p class="lead-box">飼育できなくなった生体や、ご自宅で繁殖させた生体の買取・下取りを行っています。まずはLINEかお電話でご相談ください。</p>
   </section>
 
   <section class="wrap section">
@@ -232,12 +269,25 @@ function shop(s) {
     ${s.mapUrl ? `<div class="map"><iframe src="${esc(s.mapUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="地図"></iframe></div>` : ''}
     <div class="buy"><h2>ご購入について</h2><p>ご購入は<strong>店舗、またはイベント会場</strong>にてお願いいたします。</p>${contactButtons(s)}</div>
     ${s.eventInfo ? `<div class="event"><h2>イベント出店情報</h2><p>${esc(s.eventInfo).replace(/\n/g, '<br>')}</p></div>` : ''}
+    ${snsLinks(s)}
   </section>`;
   return layout(s, { title: 'アクセス・営業時間', body, path: '/shop' });
+}
+
+function buyback(s) {
+  const body = `
+  <section class="wrap section">
+    <p class="crumbs"><a href="/">ホーム</a> &gt; 生体の買取・下取り</p>
+    <h1 class="page-title">生体の買取・下取り</h1>
+    <div class="rich">${richText(s.buyback)}</div>
+    <div class="buy"><h2>買取・下取りのご相談</h2><p>「種類・性別・状態・写真」を添えてご連絡ください。</p>${contactButtons(s)}</div>
+    ${shopTable(s)}
+  </section>`;
+  return layout(s, { title: '生体の買取・下取り', description: `${s.shopName}の生体の買取・下取りのご案内`, body, path: '/kaitori' });
 }
 
 function notFound(s) {
   return layout(s, { title: 'ページが見つかりません', body: `<section class="wrap section"><h1 class="page-title">お探しの生体・ページは見つかりませんでした</h1><p>売約済みから日数が経ったか、掲載を終了した可能性があります。</p><p><a class="btn btn-primary" href="/stock">在庫一覧へ</a></p></section>` });
 }
 
-module.exports = { home, stock, detail, shop, notFound, esc };
+module.exports = { home, stock, detail, shop, buyback, notFound, esc };

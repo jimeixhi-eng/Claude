@@ -170,3 +170,9 @@ test('バックアップを作成できる', () => {
   const file = backupNow();
   assert.ok(fs.statSync(file).size > 0);
 });
+
+test('生体の買取・下取りページ', async () => {
+  const res = await fetch(`${base}/kaitori`);
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /買取・下取り/);
+});

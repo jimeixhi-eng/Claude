@@ -524,7 +524,9 @@
         : `<label class="field"><span>${label}</span><input name="${k}" type="${type}" value="${esc(s[k])}" placeholder="${esc(ph)}"></label>`;
       const el = sheet('店舗情報・サイト設定', `<form id="setForm">
         <div class="card"><h2>店舗情報</h2>${f('shopName', '店名')}${f('tagline', 'キャッチコピー')}${f('intro', '店舗紹介文（トップページに表示）', 'area')}${f('address', '住所', 'area')}${f('hours', '営業時間', 'area', '12:00〜20:00')}${f('holidays', '定休日')}
-          ${f('phone', '電話番号', 'tel')}${f('lineUrl', 'LINE 友だち追加URL', 'url', 'https://lin.ee/xxxx')}${f('lineId', 'LINE ID（表示用）')}${f('mapUrl', 'Googleマップ埋め込みURL', 'url')}</div>
+          ${f('phone', '電話番号', 'tel')}${f('lineUrl', 'LINE 友だち追加URL', 'url', 'https://lin.ee/xxxx')}${f('lineId', 'LINE ID（表示用）')}${f('mapUrl', 'Googleマップ埋め込みURL', 'url')}
+          ${f('twitterUrl', 'X（旧Twitter）のURL', 'url', 'https://x.com/xxxx')}${f('instagramUrl', 'InstagramのURL', 'url', 'https://www.instagram.com/xxxx')}</div>
+        <div class="card"><h2>生体の買取・下取りページ</h2>${f('buyback', '本文（「・」で始まる行は箇条書きになります）', 'area')}</div>
         <div class="card"><h2>お知らせ・イベント</h2>${f('notice', 'サイト上部のお知らせ（空欄で非表示）')}${f('eventInfo', 'イベント出店情報', 'area')}</div>
         <div class="card"><h2>第一種動物取扱業の表示</h2>${f('bizName', '氏名又は名称')}${f('regType', '種別')}${f('regNo', '登録番号')}${f('regDate', '登録年月日')}${f('regExpiry', '有効期間の末日')}${f('manager', '動物取扱責任者')}</div>
         <div class="card"><h2>表示ルール</h2>${f('newDays', '「新着」として表示する日数', 'number')}${f('soldVisibleDays', '売約済みをサイトに残す日数', 'number')}

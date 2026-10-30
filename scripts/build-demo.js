@@ -34,6 +34,8 @@ async function buildSeed() {
     lineId: '@exoticsupply（見本）',
     notice: '大阪府寝屋川市に店舗をオープン致しましたので是非お立ち寄り下さい♪ 営業時間 水木金土日14時〜20時',
     eventInfo: '〇〇レプタイルズ 出店予定（見本）\nブース番号は決まり次第お知らせします',
+    twitterUrl: 'https://x.com/',
+    instagramUrl: 'https://www.instagram.com/',
     regNo: '動販 第000000号（見本）',
     regDate: '2024年4月1日',
     regExpiry: '2029年3月31日',

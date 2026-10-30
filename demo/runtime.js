@@ -309,6 +309,7 @@
     if (u.pathname === '/') html = views.home(s);
     else if (u.pathname === '/stock') html = views.stock(s, q);
     else if (u.pathname === '/shop') html = views.shop(s);
+    else if (u.pathname === '/kaitori') html = views.buyback(s);
     else if (u.pathname.startsWith('/item/')) {
       const it = items.getByNo(decodeURIComponent(u.pathname.slice(6)));
       html = it && it.status !== 'hidden' ? views.detail(s, clone(it)) : views.notFound(s);
