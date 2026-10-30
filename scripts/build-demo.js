@@ -26,16 +26,12 @@ async function buildSeed() {
   items.create(owner, { no: '108', species: 'ヒョウモントカゲモドキ', morph: 'ブラックナイト', sex: 'オス', size: 'ベビー', price: 98000, status: 'hidden', note: '入荷直後のため準備中' }, { silent: true });
   saveSettings({
     intro: '大阪の寝屋川市の爬虫類と中型インコ専門店です。爬虫類店内在庫数2500匹オーバー、関西最大級の在庫量を誇っております。生体の買取・下取りもしておりますので、是非ご来店・お問い合わせください。',
-    address: '大阪府寝屋川市（見本）',
-    hours: '水・木・金・土・日 14:00〜20:00',
-    holidays: '月曜・火曜',
+
     phone: '072-000-0000',
     lineUrl: 'https://line.me/',
     lineId: '@exoticsupply（見本）',
     notice: '大阪府寝屋川市に店舗をオープン致しましたので是非お立ち寄り下さい♪ 営業時間 水木金土日14時〜20時',
     eventInfo: '〇〇レプタイルズ 出店予定（見本）\nブース番号は決まり次第お知らせします',
-    twitterUrl: 'https://x.com/',
-    instagramUrl: 'https://www.instagram.com/',
     regNo: '動販 第000000号（見本）',
     regDate: '2024年4月1日',
     regExpiry: '2029年3月31日',
