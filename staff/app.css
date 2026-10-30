@@ -55,6 +55,9 @@ main { padding: 14px 16px calc(var(--tab-h) + env(safe-area-inset-bottom) + 24px
 .act { flex: 1; min-height: 52px; border-radius: 12px; border: 0; font-weight: 800; font-size: 16px; }
 .act.sell { background: var(--sold); color: #fff; }
 .act.back { background: var(--ok); color: #fff; }
+.act.done { background: #2b2b2b; color: #fff; }
+.act.sell + .act.done { flex: 0 0 auto; padding: 0 16px; }
+.pill.done { background: color-mix(in srgb, #2b2b2b 14%, transparent); color: var(--ink); }
 .act.sub { flex: 0 0 auto; padding: 0 14px; background: transparent; border: 1px solid var(--line); color: var(--muted); font-weight: 700; font-size: 14px; }
 .act:active { transform: scale(.98); }
 .act[disabled] { opacity: .5; }

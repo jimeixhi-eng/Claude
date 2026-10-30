@@ -4,7 +4,7 @@
   'use strict';
   const $app = document.getElementById('app');
   const $toast = document.getElementById('toast');
-  const STATUS = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+  const STATUS = { available: '販売中', sold: '売約済み', done: '販売済み', hidden: '非公開' };
   const SEX = ['', 'オス', 'メス', 'ペア', '不明'];
   const SEX_MARK = { オス: '♂', メス: '♀', ペア: '♂♀', 不明: '性別不明' };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -59,7 +59,7 @@
       let score = 3;
       if (key) {
         const no = String(it.no).toLowerCase();
-        if (no === key) score = 0;
+        if (no === key || String(it.pub_id || '').toLowerCase() === key) score = 0;
         else if (no.startsWith(key)) score = 1;
         else if (`${it.species} ${it.morph}`.normalize('NFKC').toLowerCase().includes(key)) score = 2;
         else continue;
@@ -123,12 +123,13 @@
     const it = state.items.get(no);
     const prev = it?.status;
     const prevSoldAt = it?.sold_at;
-    if (it) { it.status = status; if (status === 'sold') it.sold_at = utcNow(); refreshItem(no); }
+    const prevDoneAt = it?.done_at;
+    if (it) { it.status = status; if (status === 'sold') it.sold_at = utcNow(); it.done_at = status === 'done' ? utcNow() : null; refreshItem(no); }
     const undo = () => changeStatus(no, prev, { silent: true }).then(() => toast(`No.${no} を元に戻しました`));
     const done = () => {
       saveLocal();
       loadStats();
-      if (state.tab === 'sell' && status === 'sold') {
+      if (state.tab === 'sell' && (status === 'sold' || status === 'done')) {
         const input = document.getElementById('noInput');
         if (input) { input.value = ''; input.focus(); }
       }
@@ -145,7 +146,7 @@
         if (!silent) toast(`圏外のため保存しました（No.${no}）。電波が戻ると自動で送信します`, { undo });
         return done();
       }
-      if (it) { it.status = prev; it.sold_at = prevSoldAt; refreshItem(no); }
+      if (it) { it.status = prev; it.sold_at = prevSoldAt; it.done_at = prevDoneAt; refreshItem(no); }
       toast(e.message, { error: true });
     }
   }
@@ -155,9 +156,13 @@
     const sub = [it.morph, SEX_MARK[it.sex] || it.sex, it.size].filter(Boolean).join(' / ');
     let btns = '';
     if (actions) {
-      btns = it.status === 'available'
-        ? `<button class="act sell" data-act="sold" data-no="${esc(it.no)}">売約済みにする</button><button class="act sub" data-act="hidden" data-no="${esc(it.no)}">非公開</button>`
-        : `<button class="act back" data-act="available" data-no="${esc(it.no)}">販売中に戻す</button>${it.status === 'sold' ? `<button class="act sub" data-act="hidden" data-no="${esc(it.no)}">非公開</button>` : ''}`;
+      const b = (act, cls, label) => `<button class="act ${cls}" data-act="${act}" data-no="${esc(it.no)}">${label}</button>`;
+      btns = {
+        available: b('sold', 'sell', '売約済みにする') + b('done', 'done', '販売済み'),
+        sold: b('done', 'done', '販売済みにする') + b('available', 'sub', '販売中に戻す'),
+        done: b('available', 'back', '販売中に戻す'),
+        hidden: b('available', 'back', '販売中にする（公開）'),
+      }[it.status] || '';
     }
     return `<div class="item" id="item-${esc(it.no)}" data-open="${esc(it.no)}">
       <img class="ph" src="${esc(it.photos[0] || PH)}" alt="" loading="lazy">
@@ -192,8 +197,8 @@
         <div class="top-row"><h1>ES在庫</h1><span class="who">${esc(state.me.name)}（${isOwner() ? '店主' : 'スタッフ'}）</span></div>
         <div class="stats">
           <div class="stat"><b id="stAvail">${s ? s.available : '–'}</b><span>販売中</span></div>
-          <div class="stat"><b id="stSold">${s ? s.soldToday : '–'}</b><span>本日の売約</span></div>
-          <div class="stat"><b id="stHidden">${s ? s.hidden : '–'}</b><span>非公開</span></div>
+          <div class="stat"><b id="stSold">${s ? s.sold : '–'}</b><span>売約済み</span></div>
+          <div class="stat"><b id="stDone">${s ? s.doneToday : '–'}</b><span>本日の販売</span></div>
         </div>
       </header>
       <main id="main">${content}</main>
@@ -202,15 +207,15 @@
   function loadStats() {
     const jstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
     const since = new Date(`${jstToday}T00:00:00+09:00`).toISOString().replace('T', ' ').slice(0, 19);
-    const s = { available: 0, hidden: 0, soldToday: 0 };
+    const s = { available: 0, sold: 0, doneToday: 0 };
     for (const it of state.items.values()) {
       if (it.status === 'available') s.available++;
-      else if (it.status === 'hidden') s.hidden++;
-      else if (it.status === 'sold' && it.sold_at >= since) s.soldToday++;
+      else if (it.status === 'sold') s.sold++;
+      else if (it.status === 'done' && (it.done_at || '') >= since) s.doneToday++;
     }
     state.stats = s;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    set('stAvail', s.available); set('stSold', s.soldToday); set('stHidden', s.hidden);
+    set('stAvail', s.available); set('stSold', s.sold); set('stDone', s.doneToday);
   }
 
   function go(tab) {
@@ -225,7 +230,7 @@
         <input id="noInput" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="search" placeholder="管理番号" aria-label="管理番号">
         <button class="clear" type="button" id="clearNo" aria-label="消す">×</button>
       </div>
-      <p class="hint">管理番号を入力すると候補が出ます。種名でも探せます。</p>
+      <p class="hint">管理番号を入力すると候補が出ます。お客様から聞いたお問い合わせコードや種名でも探せます。</p>
       <div class="list" id="results"></div>`);
     const input = document.getElementById('noInput');
     const results = document.getElementById('results');
@@ -248,7 +253,7 @@
     const f = state.listFilter;
     shell(`
       <input class="search" id="listQ" type="search" placeholder="管理番号・種名で検索" value="${esc(state.listQuery)}">
-      <div class="seg">${[['available', '販売中'], ['sold', '売約済み'], ['hidden', '非公開'], ['', 'すべて']].map(([k, l]) => `<button data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join('')}</div>
+      <div class="seg">${[['available', '販売中'], ['sold', '売約済み'], ['done', '販売済み'], ['hidden', '非公開'], ['', 'すべて']].map(([k, l]) => `<button data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join('')}</div>
       ${isOwner() ? '<button class="btn" id="newItem" style="margin-bottom:12px">＋ 生体を新規登録</button>' : ''}
       <div class="list" id="listBox"><p class="empty">読み込み中…</p></div>`);
     const q = document.getElementById('listQ');
@@ -290,7 +295,7 @@
       catch (e) { if (!it || !e.network) return toast(e.message, { error: true }); } // 圏外なら端末内の情報で表示
     }
     if (!isOwner()) {
-      const rows = [['種類', it.category], ['モルフ', it.morph], ['性別', it.sex], ['サイズ', it.size], ['CB/WB', it.origin], ['ハッチ日', it.birth], ['入荷日', it.arrived_at], ['価格', yen(it)], ['備考', it.note]].filter(([, v]) => v);
+      const rows = [['お問い合わせコード', it.pub_id], ['種類', it.category], ['モルフ', it.morph], ['性別', it.sex], ['サイズ', it.size], ['CB/WB', it.origin], ['ハッチ日', it.birth], ['入荷日', it.arrived_at], ['価格', yen(it)], ['備考', it.note]].filter(([, v]) => v);
       const el = sheet(`No.${it.no} ${it.species}`, `
         ${it.photos[0] ? `<img src="${esc(it.photos[0])}" alt="" style="border-radius:12px;margin-bottom:12px;width:100%;aspect-ratio:1;object-fit:cover">` : ''}
         <div class="card">${rows.map(([k, v]) => `<div class="field"><span>${k}</span>${esc(v)}</div>`).join('')}
@@ -529,7 +534,7 @@
         <div class="card"><h2>生体の買取・下取りページ</h2>${f('buyback', '本文（「・」で始まる行は箇条書きになります）', 'area')}</div>
         <div class="card"><h2>お知らせ・イベント</h2>${f('notice', 'サイト上部のお知らせ（空欄で非表示）')}${f('eventInfo', 'イベント出店情報', 'area')}</div>
         <div class="card"><h2>第一種動物取扱業の表示</h2>${f('bizName', '氏名又は名称')}${f('regType', '種別')}${f('regNo', '登録番号')}${f('regDate', '登録年月日')}${f('regExpiry', '有効期間の末日')}${f('manager', '動物取扱責任者')}</div>
-        <div class="card"><h2>表示ルール</h2>${f('newDays', '「新着」として表示する日数', 'number')}${f('soldVisibleDays', '売約済みをサイトに残す日数', 'number')}
+        <div class="card"><h2>表示ルール</h2>${f('newDays', '「新着」として表示する日数', 'number')}${f('soldVisibleDays', '売約済みを自動でサイトから消す日数（0＝「販売済み」にするまで表示）', 'number')}
           <label class="field"><span>種類（カンマ区切り）</span><input name="categories" value="${esc(s.categories.join(','))}"></label></div>
         <p class="err" id="sErr"></p><button class="btn">保存する</button></form>`);
       el.querySelector('#setForm').onsubmit = async (e) => {
@@ -584,7 +589,7 @@
 
   // ---------- 他のスタッフの操作をリアルタイムで反映 ----------
   function listen() {
-    const es = new EventSource('/events');
+    const es = new EventSource('/api/events'); // スタッフ用（管理番号つき）の通知
     es.addEventListener('open', () => { flushQueue(); syncAll().then((ok) => ok && rerenderData()); }); // 再接続のたびに取りこぼしを補う
     es.addEventListener('item', async (e) => {
       const d = JSON.parse(e.data);

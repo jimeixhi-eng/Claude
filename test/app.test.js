@@ -76,7 +76,9 @@ test('公開サイト：販売中・ASK・非公開の表示', async () => {
   assert.match(html, /¥11,800/);
   assert.match(html, /ASK/);
   assert.doesNotMatch(html, /コーンスネーク/); // 非公開
-  assert.equal((await fetch(`${base}/item/3`)).status, 404);
+  const hiddenPid = (await owner('/api/items/3')).data.item.pub_id;
+  assert.equal((await fetch(`${base}/item/${hiddenPid}`)).status, 404);
+  assert.equal((await fetch(`${base}/item/3`)).status, 404); // 管理番号ではページを開けない
   assert.match(await (await fetch(`${base}/`)).text(), /新入荷/);
 });
 
@@ -99,7 +101,9 @@ test('スタッフが売約にすると、公開サイトとリアルタイム�
   assert.equal(r.data.item.status, 'sold');
   await Promise.race([sse, new Promise((r2) => setTimeout(r2, 1000))]);
   ctrl.abort();
-  assert.match(events.join(''), /"no":"1","status":"sold"/);
+  const pid = r.data.item.pub_id;
+  assert.match(events.join(''), new RegExp(`"pid":"${pid}","status":"sold"`));
+  assert.doesNotMatch(events.join(''), /"no"/); // 公開ページへの通知に管理番号は含めない
 
   const html = await (await fetch(`${base}/stock`)).text();
   assert.match(html, /売約済み/);
@@ -163,8 +167,10 @@ test('robots.txt と sitemap.xml（販売中の個体だけ載る）', async () 
   const robots = await (await fetch(`${base}/robots.txt`)).text();
   assert.match(robots, /Disallow: \/staff\//);
   const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
-  assert.match(sitemap, /\/item\/1</);
-  assert.doesNotMatch(sitemap, /\/item\/3</); // 非公開
+  const pid1 = (await owner('/api/items/1')).data.item.pub_id;
+  const pid3 = (await owner('/api/items/3')).data.item.pub_id;
+  assert.match(sitemap, new RegExp(`/item/${pid1}<`));
+  assert.doesNotMatch(sitemap, new RegExp(`/item/${pid3}<`)); // 非公開
 });
 
 test('バックアップを作成できる', () => {
@@ -177,4 +183,29 @@ test('生体の買取・下取りページ', async () => {
   const res = await fetch(`${base}/kaitori`);
   assert.equal(res.status, 200);
   assert.match(await res.text(), /買取・下取り/);
+});
+
+test('お客様側では管理番号が見えず、管理番号で検索もできない', async () => {
+  await owner('/api/items', { method: 'POST', body: { no: '7777', species: 'ボールパイソン', morph: 'パステル', price: 30000 } });
+  const list = await (await fetch(`${base}/stock`)).text();
+  assert.doesNotMatch(list, /7777/);
+  assert.doesNotMatch(await (await fetch(`${base}/stock?q=7777`)).text(), /パステル/);
+  assert.match(await (await fetch(`${base}/stock?q=${encodeURIComponent('パステル')}`)).text(), /パステル/);
+  const it = (await owner('/api/items/7777')).data.item;
+  const detail = await (await fetch(`${base}/item/${it.pub_id}`)).text();
+  assert.doesNotMatch(detail, /7777/);
+  assert.match(detail, new RegExp(it.pub_id));
+  // スタッフはお問い合わせコードでも探せる
+  assert.equal((await staff(`/api/items?q=${it.pub_id}`)).data.items[0].no, '7777');
+});
+
+test('販売済みにするとサイトから消える', async () => {
+  const it = (await owner('/api/items/7777')).data.item;
+  assert.equal((await staff('/api/items/7777/status', { method: 'POST', body: { status: 'sold' } })).data.item.status, 'sold');
+  assert.match(await (await fetch(`${base}/stock`)).text(), new RegExp(it.pub_id));
+  const done = await staff('/api/items/7777/status', { method: 'POST', body: { status: 'done' } });
+  assert.equal(done.data.item.status, 'done');
+  assert.ok(done.data.item.done_at);
+  assert.doesNotMatch(await (await fetch(`${base}/stock`)).text(), new RegExp(it.pub_id));
+  assert.equal((await fetch(`${base}/item/${it.pub_id}`)).status, 404);
 });

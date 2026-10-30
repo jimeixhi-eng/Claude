@@ -3,7 +3,9 @@
 /* global __ES, ES_MODULES, startStaff */
 (() => {
   'use strict';
-  const STATUSES = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+  const STATUSES = { available: '販売中', sold: '売約済み', done: '販売済み', hidden: '非公開' };
+  const PUB_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const newPubId = () => { for (;;) { const id = Array.from({ length: 6 }, () => PUB_CHARS[Math.floor(Math.random() * PUB_CHARS.length)]).join(''); if (!DB.items.some((i) => i.pub_id === id)) return id; } };
   const LIMITS = { owner: 2, staff: 20 };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 23);
@@ -39,9 +41,11 @@
 
   const items = {
     getByNo: (no) => DB.items.find((i) => i.no === String(no)) || null,
+    getByPubId: (pid) => DB.items.find((i) => i.pub_id === String(pid).toUpperCase()) || null,
     visible(it) {
       if (it.status === 'available') return true;
       if (it.status !== 'sold') return false;
+      if (!(Number(DB.settings.soldVisibleDays) || 0)) return true;
       const cut = new Date(Date.now() - (Number(DB.settings.soldVisibleDays) || 0) * 864e5).toISOString().replace('T', ' ').slice(0, 19);
       return (it.sold_at || '') >= cut;
     },
@@ -50,7 +54,7 @@
       if (category) list = list.filter((i) => i.category === category);
       if (species) list = list.filter((i) => i.species === species);
       if (status === 'available' || status === 'sold') list = list.filter((i) => i.status === status);
-      if (q) list = list.filter((i) => i.species.includes(q) || i.morph.includes(q) || i.no === q || i.note.includes(q));
+      if (q) list = list.filter((i) => i.species.includes(q) || i.morph.includes(q)); // 管理番号では探せない
       const price = (dir) => (a, b) => (a.price_ask - b.price_ask) || ((a.price == null) - (b.price == null)) || dir * ((a.price ?? 0) - (b.price ?? 0));
       const order = { price_asc: price(1), price_desc: price(-1), name: (a, b) => a.species.localeCompare(b.species, 'ja') || a.morph.localeCompare(b.morph, 'ja') }[sort]
         || ((a, b) => b.arrived_at.localeCompare(a.arrived_at) || b.id - a.id);
@@ -99,8 +103,11 @@
   // ---------- リアルタイム通知（Server-Sent Events の代わり） ----------
   const bus = new Set();
   const net = { staffOnline: true };
-  function broadcast(type, data) {
-    for (const es of bus) if (es.kind !== 'staff' || net.staffOnline) es.emit(type, data);
+  // 公開ページには管理番号を含めない通知を送る（本番の /events と /api/events の違いと同じ）
+  function broadcast(type, data, publicData = data) {
+    for (const es of bus) {
+      if (es.kind === 'staff') { if (net.staffOnline) es.emit(type, data); } else es.emit(type, publicData);
+    }
   }
   class FakeEventSource {
     constructor(kind) { this.kind = kind; this.l = {}; bus.add(this); setTimeout(() => this.emit('open'), 30); }
@@ -113,7 +120,7 @@
   function log(user, item, action, detail = {}) {
     DB.logs.unshift({ id: DB.logs.length + 1, at: new Date().toISOString().replace('T', ' ').slice(0, 19), user_name: user.name, item_no: item.no, action, detail });
   }
-  const notify = (it) => broadcast('item', { id: it.id, no: it.no, status: it.status, updated_at: it.updated_at });
+  const notify = (it) => broadcast('item', { id: it.id, no: it.no, status: it.status, updated_at: it.updated_at }, { pid: it.pub_id, status: it.status });
   function setStatus(user, no, status) {
     if (!STATUSES[status]) throw new HttpError(400, 'ステータスが不正です');
     const it = items.getByNo(no);
@@ -121,8 +128,10 @@
     if (it.status === status) return it;
     log(user, it, 'status', { from: it.status, to: status });
     it.status = status;
-    if (status === 'sold') it.sold_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    if (status === 'sold') it.sold_at = now;
     if (status === 'available') it.sold_at = null;
+    it.done_at = status === 'done' ? now : null;
     it.updated_at = stamp();
     notify(it);
     return it;
@@ -151,7 +160,7 @@
     if (!String(input.species || '').trim()) throw new HttpError(400, '種名は必須です');
     const no = String(input.no ?? '').trim() || nextNo();
     if (items.getByNo(no)) throw new HttpError(409, `管理番号 ${no} は既に使われています`);
-    const it = { id: DB.seq++, no, category: '', species: '', morph: '', sex: '', size: '', origin: '', birth: '', arrived_at: jstToday(), price: null, price_ask: false, status: 'available', sold_at: null, note: '', photos: [], created_at: stamp(), updated_at: stamp() };
+    const it = { id: DB.seq++, no, pub_id: newPubId(), done_at: null, category: '', species: '', morph: '', sex: '', size: '', origin: '', birth: '', arrived_at: jstToday(), price: null, price_ask: false, status: 'available', sold_at: null, note: '', photos: [], created_at: stamp(), updated_at: stamp() };
     applyFields(it, input);
     if (!it.category) it.category = importer.guessCategory(`${it.species} ${it.morph}`, DB.settings.categories);
     if (STATUSES[input.status]) it.status = input.status;
@@ -211,7 +220,7 @@
         const it = items.getByNo(no);
         DB.items = DB.items.filter((i) => i !== it);
         log(user, it, 'delete');
-        broadcast('item', { id: it.id, no: it.no, status: 'deleted' });
+        broadcast('item', { id: it.id, no: it.no, status: 'deleted' }, { pid: it.pub_id, status: 'deleted' });
         return { ok: true };
       }
     }
@@ -329,8 +338,8 @@
     else if (u.pathname === '/shop') html = views.shop(s);
     else if (u.pathname === '/kaitori') html = views.buyback(s);
     else if (u.pathname.startsWith('/item/')) {
-      const it = items.getByNo(decodeURIComponent(u.pathname.slice(6)));
-      html = it && it.status !== 'hidden' ? views.detail(s, clone(it)) : views.notFound(s);
+      const it = items.getByPubId(decodeURIComponent(u.pathname.slice(6)));
+      html = it && it.status !== 'hidden' && it.status !== 'done' ? views.detail(s, clone(it)) : views.notFound(s);
     } else html = views.notFound(s);
     const doc = new DOMParser().parseFromString(html.split('/img/icon.svg').join(__ES.icon).split('/img/logo.png').join(__ES.logo), 'text/html');
     // 本番では並び替えを選ぶとページを読み直す。デモではページ内で切り替えるので、その指定を外す
@@ -353,7 +362,7 @@
       navigate(site.route, true);
       if (drawerOpen) site.root.getElementById('drawer').hidden = false;
       site.root.querySelectorAll('details > summary span').forEach((el) => { if (openCats.includes(el.textContent)) el.closest('details').open = true; });
-      for (const no of site.changed) site.root.querySelectorAll(`[data-no="${CSS.escape(no)}"]`).forEach((el) => el.classList.add('changed'));
+      for (const id of site.changed) site.root.querySelectorAll(`[data-id="${CSS.escape(id)}"]`).forEach((el) => el.classList.add('changed'));
       site.changed.clear();
       const pill = site.root.getElementById('livePill');
       const text = site.root.getElementById('liveText');
@@ -390,7 +399,7 @@
     site.root.addEventListener('change', (e) => { if (e.target.form && e.target.matches('select, input[type=checkbox]')) e.target.form.requestSubmit(); });
     site.es?.close();
     site.es = new FakeEventSource('site');
-    site.es.addEventListener('item', (e) => { site.changed.add(JSON.parse(e.data).no); siteRefresh(); });
+    site.es.addEventListener('item', (e) => { site.changed.add(JSON.parse(e.data).pid); siteRefresh(); });
     site.es.addEventListener('reload', siteRefresh);
     navigate(site.route);
   }

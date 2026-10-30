@@ -57,7 +57,8 @@ function normSex(v) {
 function normStatus(v) {
   const s = String(v ?? '').normalize('NFKC').trim();
   if (!s) return undefined;
-  if (/売約|売却|sold|完売|済/i.test(s)) return 'sold';
+  if (/販売済|完売|売却|引渡|引き渡|done/i.test(s)) return 'done';
+  if (/売約|sold|済/i.test(s)) return 'sold';
   if (/非公開|hidden|準備中|検疫/i.test(s)) return 'hidden';
   return 'available';
 }

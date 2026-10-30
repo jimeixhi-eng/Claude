@@ -35,12 +35,12 @@ app.get('/stock', (req, res) => html(res, views.stock(getSettings(), req.query))
 app.get('/shop', (req, res) => html(res, views.shop(getSettings())));
 app.get('/category', (req, res) => html(res, views.categoryPage(getSettings())));
 app.get('/kaitori', (req, res) => html(res, views.buyback(getSettings())));
-app.get('/item/:no', (req, res) => {
-  const it = items.getByNo(req.params.no);
-  if (!it || it.status === 'hidden') return html(res, views.notFound(getSettings()), 404);
+app.get('/item/:pid', (req, res) => {
+  const it = items.getByPubId(req.params.pid);
+  if (!it || it.status === 'hidden' || it.status === 'done') return html(res, views.notFound(getSettings()), 404);
   html(res, views.detail(getSettings(), it));
 });
-app.get('/events', realtime.subscribe);
+app.get('/events', (req, res) => realtime.subscribe(req, res)); // 公開ページ向け（管理番号は含まない）
 
 // 検索エンジン向け
 const siteUrl = (req) => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
@@ -49,7 +49,7 @@ app.get('/robots.txt', (req, res) => {
 });
 app.get('/sitemap.xml', (req, res) => {
   const base = siteUrl(req);
-  const urls = ['/', '/category', '/stock', '/kaitori', '/shop', ...items.listPublic({ status: 'available' }).map((it) => `/item/${encodeURIComponent(it.no)}`)];
+  const urls = ['/', '/category', '/stock', '/kaitori', '/shop', ...items.listPublic({ status: 'available' }).map((it) => `/item/${it.pub_id}`)];
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${views.esc(base + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
 });
 
@@ -88,6 +88,7 @@ api.post('/logout', (req, res) => {
 api.use(auth.requireUser);
 api.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 
+api.get('/events', (req, res) => realtime.subscribe(req, res, { staff: true }));
 api.get('/me', (req, res) => res.json({ user: req.user, limits: ROLE_LIMITS, categories: getSettings().categories }));
 api.get('/stats', (req, res) => res.json(items.todayStats()));
 api.get('/items', (req, res) => res.json({ items: items.listStaff(req.query) }));

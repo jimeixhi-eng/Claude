@@ -1,9 +1,9 @@
 'use strict';
-// Server-Sent Events。在庫が変わった瞬間に、開いている公開ページと
-// スタッフアプリ全員へ「何番が変わったか」だけを送る（データ量は数十バイト）。
-const clients = new Set();
+// Server-Sent Events。在庫が変わった瞬間に、開いている公開ページとスタッフアプリへ小さな通知を送る。
+// 公開ページ向け（/events）には管理番号を含めず、公開用コードだけを送る。管理番号はログイン済みのスタッフ（/api/events）にだけ届く。
+const clients = new Map(); // res → { staff: boolean }
 
-function subscribe(req, res) {
+function subscribe(req, res, { staff = false } = {}) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
@@ -11,14 +11,16 @@ function subscribe(req, res) {
     'X-Accel-Buffering': 'no', // nginx 越しでもバッファさせない
   });
   res.write('retry: 3000\n\n');
-  clients.add(res);
+  clients.set(res, { staff });
   const ping = setInterval(() => res.write(': ping\n\n'), 25e3);
   req.on('close', () => { clearInterval(ping); clients.delete(res); });
 }
 
-function broadcast(event, data) {
-  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of clients) res.write(msg);
+// data はスタッフ向け、publicData は公開ページ向け（省略時は同じものを送る）
+function broadcast(event, data, publicData = data) {
+  const staffMsg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  const publicMsg = `event: ${event}\ndata: ${JSON.stringify(publicData)}\n\n`;
+  for (const [res, { staff }] of clients) res.write(staff ? staffMsg : publicMsg);
 }
 
 module.exports = { subscribe, broadcast, clients };

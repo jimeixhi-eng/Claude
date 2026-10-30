@@ -15,7 +15,8 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS items (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    no          TEXT NOT NULL UNIQUE,          -- 管理番号
+    no          TEXT NOT NULL UNIQUE,          -- 管理番号（店舗内だけで使う。公開サイトには出さない）
+    pub_id      TEXT NOT NULL UNIQUE,          -- 公開用のお問い合わせコード（URL にも使う）
     category    TEXT NOT NULL DEFAULT '',      -- 分類（ヤモリ・トカゲ・ヘビ…）
     species     TEXT NOT NULL,                 -- 種名
     morph       TEXT NOT NULL DEFAULT '',      -- モルフ
@@ -26,8 +27,9 @@ db.exec(`
     arrived_at  TEXT NOT NULL,                 -- 入荷日 YYYY-MM-DD
     price       INTEGER,                       -- 税込価格（円）
     price_ask   INTEGER NOT NULL DEFAULT 0,    -- 1 = 価格非公開（ASK）
-    status      TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','sold','hidden')),
-    sold_at     TEXT,
+    status      TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','sold','done','hidden')),
+    sold_at     TEXT,                          -- 売約にした日時
+    done_at     TEXT,                          -- 販売済み（お渡し完了）にした日時
     note        TEXT NOT NULL DEFAULT '',
     photos      TEXT NOT NULL DEFAULT '[]',    -- JSON 配列（URL）
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
@@ -69,7 +71,41 @@ db.exec(`
   );
 `);
 
-const STATUSES = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+// available 販売中 → sold 売約済み（サイトに「売約済み」と出る）→ done 販売済み（お渡し完了・サイトから消える）
+const STATUSES = { available: '販売中', sold: '売約済み', done: '販売済み', hidden: '非公開' };
+
+// 公開用コード：紛らわしい文字（0/O・1/I など）を除いた6文字
+const PUB_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function newPubId() {
+  for (;;) {
+    const id = Array.from(require('node:crypto').randomBytes(6), (b) => PUB_CHARS[b % PUB_CHARS.length]).join('');
+    if (!db.prepare('SELECT 1 FROM items WHERE pub_id = ?').get(id)) return id;
+  }
+}
+
+// 古い形式のデータベース（販売済み・公開用コードがない）を新しい形式に移す
+(function migrate() {
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'items'").get()?.sql || '';
+  if (sql.includes('pub_id')) return;
+  db.exec('BEGIN');
+  try {
+    db.exec(`ALTER TABLE items RENAME TO items_old`);
+    db.exec(sql.replace('CREATE TABLE items', 'CREATE TABLE items')
+      .replace("no          TEXT NOT NULL UNIQUE,", "no TEXT NOT NULL UNIQUE, pub_id TEXT NOT NULL UNIQUE,")
+      .replace("('available','sold','hidden')", "('available','sold','done','hidden')")
+      .replace(/sold_at\s+TEXT,/, 'sold_at TEXT, done_at TEXT,'));
+    const cols = db.prepare('PRAGMA table_info(items_old)').all().map((c) => c.name);
+    const old = db.prepare('SELECT * FROM items_old').all();
+    for (const r of old) {
+      const row = { ...r, pub_id: newPubId() };
+      const keys = [...cols, 'pub_id'];
+      db.prepare(`INSERT INTO items(${keys.join(',')}) VALUES(${keys.map(() => '?').join(',')})`).run(...keys.map((k) => row[k]));
+    }
+    db.exec('DROP TABLE items_old');
+    db.exec('CREATE INDEX IF NOT EXISTS items_status ON items(status, arrived_at)');
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+})();
 const ROLE_LIMITS = { owner: 2, staff: 20 };
 
 const DEFAULT_SETTINGS = {
@@ -106,7 +142,7 @@ const DEFAULT_SETTINGS = {
   manager: '',
   // 表示ルール
   newDays: 14,        // 入荷から何日間「新着」扱いにするか
-  soldVisibleDays: 7, // 売約済みを何日間サイトに残すか
+  soldVisibleDays: 0, // 売約済みを何日でサイトから自動で消すか（0 = 「販売済み」にするまで表示し続ける）
   categories: ['トカゲモドキ', 'ヤモリ', 'トカゲ', '蛇', 'カメレオン・ヒメカメレオン', '陸ガメ', '水棲ガメ', 'ハコガメ', 'カエル', 'サラマンダー・イモリ', '奇虫', '中型大型インコ・オウム', 'その他'],
 };
 
@@ -136,4 +172,4 @@ function tx(fn) {
   try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
-module.exports = { db, DATA_DIR, STATUSES, ROLE_LIMITS, DEFAULT_SETTINGS, getSettings, saveSettings, rowToItem, tx };
+module.exports = { db, DATA_DIR, STATUSES, newPubId, ROLE_LIMITS, DEFAULT_SETTINGS, getSettings, saveSettings, rowToItem, tx };

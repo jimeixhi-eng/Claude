@@ -19,12 +19,13 @@ const PLACEHOLDER = `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 40
 function card(it) {
   const photo = it.photos[0];
   const sold = it.status === 'sold';
-  return `<a class="card${sold ? ' is-sold' : ''}" href="/item/${encodeURIComponent(it.no)}" data-no="${esc(it.no)}">
+  // 公開サイトには管理番号を出さない（URL・HTML・通知のどこにも）。代わりに公開用コードを使う
+  return `<a class="card${sold ? ' is-sold' : ''}" href="/item/${esc(it.pub_id)}" data-id="${esc(it.pub_id)}">
     <div class="thumb">${photo ? `<img src="${esc(photo)}" alt="${esc(it.species)} ${esc(it.morph)}" loading="lazy" decoding="async">` : PLACEHOLDER}
       ${sold ? '<span class="sold-band">売約済み</span>' : items.isNew(it) ? '<span class="badge-new">New</span>' : ''}
     </div>
     <div class="card-body">
-      <p class="card-cat">${esc(it.category || '生体')}<span class="card-no">No.${esc(it.no)}</span></p>
+      <p class="card-cat">${esc(it.category || '生体')}</p>
       <h3 class="card-title">${esc(it.species)}</h3>
       ${it.morph ? `<p class="card-morph">${esc(it.morph)}</p>` : ''}
       <p class="card-meta">${[SEX_MARK[it.sex] || it.sex, it.size, it.origin].filter(Boolean).map(esc).join('<span>・</span>')}</p>
@@ -33,12 +34,12 @@ function card(it) {
   </a>`;
 }
 
-function contactButtons(s, no) {
+function contactButtons(s, code) {
   const btns = [];
   if (s.lineUrl) btns.push(`<a class="btn btn-line" href="${esc(s.lineUrl)}" target="_blank" rel="noopener">LINEで問い合わせ</a>`);
   if (s.phone) btns.push(`<a class="btn btn-tel" href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">電話する ${esc(s.phone)}</a>`);
   if (!btns.length) return '';
-  return `<div class="contact">${no ? `<p class="contact-lead">お問い合わせの際は<strong>「No.${esc(no)}」</strong>とお伝えください。</p>` : ''}<div class="contact-btns">${btns.join('')}</div></div>`;
+  return `<div class="contact">${code ? `<p class="contact-lead">お問い合わせの際は、お問い合わせコード<strong>「${esc(code)}」</strong>をお伝えください。</p>` : ''}<div class="contact-btns">${btns.join('')}</div></div>`;
 }
 
 // 帯メニューのアイコン（今のサイトと同じく白い線画）
@@ -299,7 +300,7 @@ function stock(s, query) {
     <form class="filters" action="/stock" method="get">
       ${category ? `<input type="hidden" name="category" value="${esc(category)}">` : ''}
       ${species ? `<input type="hidden" name="species" value="${esc(species)}">` : ''}
-      <input class="search" type="search" name="q" value="${esc(q)}" placeholder="種名・モルフ・管理番号で検索" enterkeyhint="search">
+      <input class="search" type="search" name="q" value="${esc(q)}" placeholder="種名・モルフで検索" enterkeyhint="search">
       <select name="sort" onchange="this.form.submit()" aria-label="並び替え">
         ${[['new', '新着順'], ['price_asc', '価格の安い順'], ['price_desc', '価格の高い順'], ['name', '種名順']].map(([v, l]) => `<option value="${v}"${v === sort ? ' selected' : ''}>${l}</option>`).join('')}
       </select>
@@ -316,12 +317,12 @@ function stock(s, query) {
 
 function detail(s, it) {
   const sold = it.status === 'sold';
-  const rows = [['管理番号', `No.${it.no}`], ['種類', it.category], ['種名', it.species], ['モルフ', it.morph], ['性別', SEX_MARK[it.sex] || it.sex],
+  const rows = [['お問い合わせコード', it.pub_id], ['種類', it.category], ['種名', it.species], ['モルフ', it.morph], ['性別', SEX_MARK[it.sex] || it.sex],
     ['サイズ', it.size], ['CB/WB・産地', it.origin], ['ハッチ日・生年月日', it.birth], ['入荷日', it.arrived_at]].filter(([, v]) => v);
   const photos = it.photos.length ? it.photos : [null];
   const body = `
   <section class="wrap section detail">
-    <p class="crumbs"><a href="/">ホーム</a> &gt; ${it.category ? `<a href="${stockUrl({ category: it.category })}">${esc(it.category)}</a> &gt; <a href="${stockUrl({ category: it.category, species: it.species })}">${esc(it.species)}</a>` : `<a href="/stock">在庫リスト</a> &gt; ${esc(it.species)}`} &gt; ${esc(it.morph || `No.${it.no}`)}</p>
+    <p class="crumbs"><a href="/">ホーム</a> &gt; ${it.category ? `<a href="${stockUrl({ category: it.category })}">${esc(it.category)}</a> &gt; <a href="${stockUrl({ category: it.category, species: it.species })}">${esc(it.species)}</a>` : `<a href="/stock">在庫リスト</a> &gt; ${esc(it.species)}`} &gt; ${esc(it.morph || it.species)}</p>
     <div class="detail-grid">
       <div class="gallery">
         <div class="gallery-main${sold ? ' is-sold' : ''}">${photos[0] ? `<img src="${esc(photos[0])}" alt="${esc(it.species)}" id="mainPhoto">` : PLACEHOLDER}${sold ? '<span class="sold-band">売約済み</span>' : ''}</div>
@@ -333,7 +334,7 @@ function detail(s, it) {
         <div class="detail-price">${sold ? '<span class="price sold">売約済み</span>' : `<span class="price-label">販売価格</span>${priceHtml(it, 'price big')}`}</div>
         <dl class="spec">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
         ${it.note ? `<p class="note">${esc(it.note).replace(/\n/g, '<br>')}</p>` : ''}
-        ${sold ? '<p class="sold-msg">この生体は売約済みとなりました。ほかの在庫もぜひご覧ください。</p>' : `<p class="buy-note">ご購入は店舗、またはイベント会場にてお願いいたします。</p>${contactButtons(s, it.no)}`}
+        ${sold ? '<p class="sold-msg">この生体は売約済みとなりました。ほかの在庫もぜひご覧ください。</p>' : `<p class="buy-note">ご購入は店舗、またはイベント会場にてお願いいたします。</p>${contactButtons(s, it.pub_id)}`}
       </div>
     </div>
   </section>`;
@@ -367,7 +368,7 @@ function buyback(s) {
 }
 
 function notFound(s) {
-  return layout(s, { title: 'ページが見つかりません', body: `<section class="wrap section"><h1 class="page-title">お探しの生体・ページは見つかりませんでした</h1><p>売約済みから日数が経ったか、掲載を終了した可能性があります。</p><p><a class="btn btn-primary" href="/stock">在庫一覧へ</a></p></section>` });
+  return layout(s, { title: 'ページが見つかりません', body: `<section class="wrap section"><h1 class="page-title">お探しの生体・ページは見つかりませんでした</h1><p>販売済みになったか、掲載を終了した可能性があります。</p><p><a class="btn btn-primary" href="/stock">在庫一覧へ</a></p></section>` });
 }
 
 module.exports = { home, categoryPage, stock, detail, shop, buyback, notFound, esc };

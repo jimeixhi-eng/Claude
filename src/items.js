@@ -1,6 +1,6 @@
 'use strict';
 // 在庫データの読み書き。権限チェック・変更履歴・リアルタイム通知はすべてここを通す。
-const { db, STATUSES, getSettings, rowToItem, tx } = require('./db');
+const { db, STATUSES, newPubId, getSettings, rowToItem, tx } = require('./db');
 const { broadcast } = require('./realtime');
 
 const EDITABLE = ['category', 'species', 'morph', 'sex', 'size', 'origin', 'birth', 'arrived_at', 'note', 'photos'];
@@ -15,14 +15,19 @@ class HttpError extends Error {
 function getByNo(no) {
   return rowToItem(db.prepare('SELECT * FROM items WHERE no = ?').get(String(no)));
 }
+function getByPubId(pid) {
+  return rowToItem(db.prepare('SELECT * FROM items WHERE pub_id = ?').get(String(pid).toUpperCase()));
+}
 function getById(id) {
   return rowToItem(db.prepare('SELECT * FROM items WHERE id = ?').get(Number(id)));
 }
 
-// 公開サイトに出してよい在庫（販売中＋売約から一定日数以内）
+// 公開サイトに出してよい在庫：販売中と売約済み（販売済み・非公開は出さない）
+// 「売約済みを自動で消す日数」が設定されていれば、その日数を過ぎた売約済みも出さない
 function publicVisibleSql() {
-  const { soldVisibleDays } = getSettings();
-  return { where: `(status = 'available' OR (status = 'sold' AND sold_at >= datetime('now', ?)))`, params: [`-${Number(soldVisibleDays) || 0} days`] };
+  const days = Number(getSettings().soldVisibleDays) || 0;
+  if (!days) return { where: `status IN ('available', 'sold')`, params: [] };
+  return { where: `(status = 'available' OR (status = 'sold' AND sold_at >= datetime('now', ?)))`, params: [`-${days} days`] };
 }
 
 function listPublic({ category, species, status, q, sort, sex } = {}) {
@@ -34,8 +39,8 @@ function listPublic({ category, species, status, q, sort, sex } = {}) {
   if (status === 'available' || status === 'sold') { where.push('status = ?'); params.push(status); }
   if (sex) { where.push('sex = ?'); params.push(sex); }
   if (q) {
-    where.push(`(species LIKE ? OR morph LIKE ? OR no = ? OR note LIKE ?)`);
-    params.push(`%${q}%`, `%${q}%`, q, `%${q}%`);
+    where.push(`(species LIKE ? OR morph LIKE ?)`);
+    params.push(`%${q}%`, `%${q}%`);
   }
   const order = {
     price_asc: `price_ask, price IS NULL, price ASC`,
@@ -85,8 +90,8 @@ function listStaff({ q, status, limit = 60 } = {}) {
   const params = [];
   if (status && STATUSES[status]) { where.push('status = ?'); params.push(status); }
   if (q) {
-    where.push(`(no LIKE ? OR species LIKE ? OR morph LIKE ?)`);
-    params.push(`${q}%`, `%${q}%`, `%${q}%`);
+    where.push(`(no LIKE ? OR pub_id = ? OR species LIKE ? OR morph LIKE ?)`);
+    params.push(`${q}%`, q.toUpperCase(), `%${q}%`, `%${q}%`);
   }
   // 管理番号が完全一致したものを一番上に
   return db.prepare(`SELECT * FROM items WHERE ${where.join(' AND ')} ORDER BY (no = ?) DESC, updated_at DESC LIMIT ?`)
@@ -99,7 +104,7 @@ function log(user, item, action, detail = {}) {
 }
 
 function notify(item) {
-  broadcast('item', { id: item.id, no: item.no, status: item.status, updated_at: item.updated_at });
+  broadcast('item', { id: item.id, no: item.no, status: item.status, updated_at: item.updated_at }, { pid: item.pub_id, status: item.status });
 }
 
 function setStatus(user, no, status) {
@@ -107,8 +112,10 @@ function setStatus(user, no, status) {
   const before = getByNo(no);
   if (!before) throw new HttpError(404, `管理番号 ${no} は見つかりません`);
   if (before.status === status) return before;
-  db.prepare(`UPDATE items SET status = ?, sold_at = CASE WHEN ? = 'sold' THEN datetime('now') WHEN ? = 'available' THEN NULL ELSE sold_at END,
-              updated_at = datetime('now') WHERE id = ?`).run(status, status, status, before.id);
+  db.prepare(`UPDATE items SET status = ?,
+              sold_at = CASE WHEN ? = 'sold' THEN datetime('now') WHEN ? = 'available' THEN NULL ELSE sold_at END,
+              done_at = CASE WHEN ? = 'done' THEN datetime('now') ELSE NULL END,
+              updated_at = datetime('now') WHERE id = ?`).run(status, status, status, status, before.id);
   const after = getById(before.id);
   log(user, after, 'status', { from: before.status, to: status });
   notify(after);
@@ -152,8 +159,10 @@ function create(user, input, { silent = false } = {}) {
   const no = String(input.no ?? '').trim() || nextNo();
   if (getByNo(no)) throw new HttpError(409, `管理番号 ${no} は既に使われています`);
   const status = STATUSES[input.status] ? input.status : 'available';
-  const cols = { no, status, arrived_at: today(), ...f };
-  if (status === 'sold') cols.sold_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const cols = { no, pub_id: newPubId(), status, arrived_at: today(), ...f };
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  if (status === 'sold' || status === 'done') cols.sold_at = now;
+  if (status === 'done') cols.done_at = now;
   const keys = Object.keys(cols);
   const info = db.prepare(`INSERT INTO items(${keys.join(',')}) VALUES(${keys.map(() => '?').join(',')})`).run(...keys.map((k) => cols[k]));
   const item = getById(info.lastInsertRowid);
@@ -198,7 +207,7 @@ function remove(user, no) {
   if (user.role !== 'owner') throw new HttpError(403, '削除は店主のみ可能です');
   db.prepare('DELETE FROM items WHERE id = ?').run(item.id);
   log(user, item, 'delete', { species: item.species });
-  broadcast('item', { id: item.id, no: item.no, status: 'deleted' });
+  broadcast('item', { id: item.id, no: item.no, status: 'deleted' }, { pid: item.pub_id, status: 'deleted' });
 }
 
 // 一括取り込み（管理番号が同じものは上書き、なければ新規）
@@ -231,11 +240,13 @@ function todayStats() {
   return {
     available: db.prepare(`SELECT COUNT(*) n FROM items WHERE status='available'`).get().n,
     hidden: db.prepare(`SELECT COUNT(*) n FROM items WHERE status='hidden'`).get().n,
+    sold: db.prepare(`SELECT COUNT(*) n FROM items WHERE status='sold'`).get().n,
     soldToday: db.prepare(`SELECT COUNT(*) n FROM items WHERE status='sold' AND sold_at >= ?`).get(sinceUtc).n,
+    doneToday: db.prepare(`SELECT COUNT(*) n FROM items WHERE status='done' AND done_at >= ?`).get(sinceUtc).n,
   };
 }
 
 module.exports = {
-  HttpError, getByNo, listPublic, listNewArrivals, listStaff, countsPublic, speciesCounts, newArrivalSummary, isNew, setStatus,
+  HttpError, getByNo, getByPubId, listPublic, listNewArrivals, listStaff, countsPublic, speciesCounts, newArrivalSummary, isNew, setStatus,
   create, update, remove, importRows, recentLogs, todayStats, nextNo, today,
 };

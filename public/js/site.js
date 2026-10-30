@@ -39,7 +39,7 @@
         if (q) q.replaceWith(active);
       }
       cur.replaceWith(next);
-      for (const no of changedNos) next.querySelectorAll(`[data-no="${CSS.escape(no)}"]`).forEach((el) => el.classList.add('changed'));
+      for (const id of changedNos) next.querySelectorAll(`[data-id="${CSS.escape(id)}"]`).forEach((el) => el.classList.add('changed'));
       changedNos = new Set();
       if (pill) { pill.classList.add('flash'); text.textContent = '在庫が更新されました'; setTimeout(() => { pill.classList.remove('flash'); text.textContent = '在庫をリアルタイム表示中'; }, 2500); }
     } catch { /* 通信が戻れば次の通知で更新される */ }
@@ -49,7 +49,7 @@
   const es = new EventSource('/events');
   es.addEventListener('open', () => { if (pill) { pill.hidden = false; pill.classList.remove('off'); text.textContent = '在庫をリアルタイム表示中'; } });
   es.addEventListener('error', () => { if (pill) { pill.classList.add('off'); text.textContent = '再接続中…'; } });
-  es.addEventListener('item', (e) => { try { changedNos.add(JSON.parse(e.data).no); } catch {} schedule(); });
+  es.addEventListener('item', (e) => { try { changedNos.add(JSON.parse(e.data).pid); } catch {} schedule(); });
   es.addEventListener('reload', schedule);
   // スマホでタブに戻ってきたときにも最新化
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') schedule(); });
