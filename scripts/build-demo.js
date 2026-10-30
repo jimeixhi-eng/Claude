@@ -21,16 +21,19 @@ async function buildSeed() {
     const { rows } = await parseAny({ buffer: fs.readFileSync(path.join(ROOT, 'samples', f)), filename: f });
     items.importRows(owner, rows.map(({ _warnings, ...r }) => r));
   }
+  items.create(owner, { no: '401', species: 'ヨウム', morph: 'コンゴウヨウム', sex: 'オス', size: '若鳥', origin: '国内CB', price: 380000, note: '手乗り。人によく慣れています' }, { silent: true });
+  items.create(owner, { no: '402', species: 'オキナワシリケンイモリ', morph: 'アルビノ', sex: '不明', size: 'ヤング', origin: 'CB', price_ask: true }, { silent: true });
   items.create(owner, { no: '108', species: 'ヒョウモントカゲモドキ', morph: 'ブラックナイト', sex: 'オス', size: 'ベビー', price: 98000, status: 'hidden', note: '入荷直後のため準備中' }, { silent: true });
   saveSettings({
-    address: '東京都〇〇区〇〇 1-2-3（見本）',
-    hours: '13:00〜20:00\n土日祝 12:00〜19:00',
-    holidays: '毎週水曜日',
-    phone: '03-0000-0000',
+    intro: '大阪の寝屋川市の爬虫類と中型インコ専門店です。爬虫類店内在庫数2500匹オーバー、関西最大級の在庫量を誇っております。生体の買取・下取りもしておりますので、是非ご来店・お問い合わせください。',
+    address: '大阪府寝屋川市（見本）',
+    hours: '水・木・金・土・日 14:00〜20:00',
+    holidays: '月曜・火曜',
+    phone: '072-000-0000',
     lineUrl: 'https://line.me/',
     lineId: '@exoticsupply（見本）',
-    notice: '11/3（祝）はレプタイルズイベント出店のため店舗休業です',
-    eventInfo: '11/3（祝）〇〇レプタイルズフェア 出店予定\nブース番号は決まり次第お知らせします',
+    notice: '大阪府寝屋川市に店舗をオープン致しましたので是非お立ち寄り下さい♪ 営業時間 水木金土日14時〜20時',
+    eventInfo: '〇〇レプタイルズ 出店予定（見本）\nブース番号は決まり次第お知らせします',
     regNo: '動販 第000000号（見本）',
     regDate: '2024年4月1日',
     regExpiry: '2029年3月31日',
@@ -42,6 +45,7 @@ async function buildSeed() {
 // <script> 内に埋め込むための加工
 const jsSafe = (src) => src.replace(/<\/script/gi, '<\\/script');
 const ICON = `data:image/svg+xml;base64,${Buffer.from(read('public/img/icon.svg')).toString('base64')}`;
+const LOGO = `data:image/png;base64,${fs.readFileSync(path.join(ROOT, 'public/img/logo.png')).toString('base64')}`;
 const jsonSafe = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
 
 function staffApp() {
@@ -71,7 +75,7 @@ function staffBody() {
   const seed = await buildSeed();
   const modules = ['views', 'importer'].map((m) => `'./${m}': function (require, module, exports) {\n${read(`src/${m}.js`)}\n}`).join(',\n');
   const inject = [
-    `<script>window.__ES = { seed: ${jsonSafe(seed)}, cssSite: ${jsonSafe(read('public/css/site.css'))}, cssStaff: ${jsonSafe(read('staff/app.css'))}, staffBody: ${jsonSafe(staffBody())}, icon: ${jsonSafe(ICON)} };</script>`,
+    `<script>window.__ES = { seed: ${jsonSafe(seed)}, cssSite: ${jsonSafe(read('public/css/site.css'))}, cssStaff: ${jsonSafe(read('staff/app.css'))}, staffBody: ${jsonSafe(staffBody())}, icon: ${jsonSafe(ICON)}, logo: ${jsonSafe(LOGO)} };</script>`,
     `<script>const ES_MODULES = {\n${jsSafe(modules)}\n};</script>`,
     `<script>${jsSafe(staffApp())}</script>`,
     `<script>${jsSafe(read('demo/runtime.js'))}</script>`,

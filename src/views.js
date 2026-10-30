@@ -21,7 +21,7 @@ function card(it) {
   const sold = it.status === 'sold';
   return `<a class="card${sold ? ' is-sold' : ''}" href="/item/${encodeURIComponent(it.no)}" data-no="${esc(it.no)}">
     <div class="thumb">${photo ? `<img src="${esc(photo)}" alt="${esc(it.species)} ${esc(it.morph)}" loading="lazy" decoding="async">` : PLACEHOLDER}
-      ${sold ? '<span class="sold-band">売約済み</span>' : items.isNew(it) ? '<span class="badge-new">NEW</span>' : ''}
+      ${sold ? '<span class="sold-band">売約済み</span>' : items.isNew(it) ? '<span class="badge-new">New</span>' : ''}
     </div>
     <div class="card-body">
       <p class="card-cat">${esc(it.category || '生体')}<span class="card-no">No.${esc(it.no)}</span></p>
@@ -41,9 +41,24 @@ function contactButtons(s, no) {
   return `<div class="contact">${no ? `<p class="contact-lead">お問い合わせの際は<strong>「No.${esc(no)}」</strong>とお伝えください。</p>` : ''}<div class="contact-btns">${btns.join('')}</div></div>`;
 }
 
+// 帯メニューのアイコン（今のサイトと同じく白い線画）
+const ICONS = {
+  home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
+  stock: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  new: '<path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z"/>',
+  shop: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+  line: '<path d="M12 4C7 4 3 7.2 3 11.2c0 3.6 3.2 6.6 7.5 7.1l-.5 2.7 3.4-2.6c4.3-.4 7.6-3.4 7.6-7.2C21 7.2 17 4 12 4z"/>',
+  tel: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+};
+const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
 function layout(s, { title, description, body, path = '/', image }) {
-  const nav = [['/', 'トップ'], ['/stock', '在庫一覧'], ['/shop', '店舗情報']]
-    .map(([href, label]) => `<a href="${href}"${(href === '/' ? path === '/' : path.startsWith(href)) ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const nav = [['/', 'トップ', 'home'], ['/stock', '在庫一覧', 'stock'], ['/stock?sort=new', '新入荷', 'new'], ['/shop', 'アクセス・営業時間', 'shop']]
+    .map(([href, label, ic]) => `<a href="${href}"${(href === '/' ? path === '/' : href === '/stock' ? path.startsWith('/stock') || path.startsWith('/item') : path === href) ? ' aria-current="page"' : ''}>${icon(ic)}<span>${label}</span></a>`).join('');
+  const hbtns = [
+    s.lineUrl && `<a class="hbtn" href="${esc(s.lineUrl)}" target="_blank" rel="noopener">${icon('line')}<span>LINEで<br>お問合せ</span></a>`,
+    s.phone && `<a class="hbtn" href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">${icon('tel')}<span>電話での<br>お問合せ</span></a>`,
+  ].filter(Boolean).join('');
   const fullTitle = title ? `${title} | ${s.shopName}` : `${s.shopName} | ${s.tagline}`;
   return `<!doctype html>
 <html lang="ja">
@@ -55,19 +70,20 @@ function layout(s, { title, description, body, path = '/', image }) {
 <meta property="og:title" content="${esc(fullTitle)}">
 <meta property="og:type" content="website">
 ${image ? `<meta property="og:image" content="${esc(image)}">` : ''}
-<meta name="theme-color" content="#1f3a2c">
+<meta name="theme-color" content="#55bc6a">
 <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/site.css?v=1">
 <script src="/js/site.js?v=1" defer></script>
 </head>
 <body>
+${s.notice ? `<div class="notice"><div class="wrap">${esc(s.notice)}</div></div>` : ''}
 <header class="site-header">
   <div class="wrap header-inner">
-    <a class="logo" href="/"><img src="/img/icon.svg" alt="" width="32" height="32"><span>${esc(s.shopName)}</span></a>
-    <nav class="nav">${nav}</nav>
+    <a class="logo" href="/"><img src="/img/logo.png" alt="${esc(s.shopName)}" width="268" height="64"></a>
+    <div class="hbtns">${hbtns}</div>
   </div>
 </header>
-${s.notice ? `<div class="notice"><div class="wrap">${esc(s.notice)}</div></div>` : ''}
+<nav class="gnav" aria-label="メニュー"><div class="wrap gnav-inner">${nav}</div></nav>
 <main id="live">${body}</main>
 <footer class="site-footer">
   <div class="wrap">
@@ -105,17 +121,18 @@ function home(s) {
   const total = counts.filter((c) => c.category !== '__sold').reduce((a, c) => a + c.n, 0);
   const cats = s.categories.map((c) => [c, counts.find((x) => x.category === c)?.n || 0]);
   const body = `
-  <section class="hero">
-    <div class="wrap">
-      <p class="hero-sub">${esc(s.tagline)}</p>
-      <h1>${esc(s.shopName)}</h1>
-      <p class="hero-stat"><strong>${total}</strong> 匹 販売中 <span class="updated">最終更新 <time>${updatedAt()}</time></span></p>
+  <section class="wrap intro">
+    <h1 class="intro-title">${esc(s.tagline)}</h1>
+    ${s.intro ? `<p class="intro-text">${esc(s.intro)}</p>` : ''}
+    <div class="counter">
+      <p class="counter-num"><span>ただいまの販売中</span><strong>${total}</strong>匹</p>
+      <p class="updated">在庫はリアルタイムで更新しています・最終更新 <time>${updatedAt()}</time></p>
       <a class="btn btn-primary" href="/stock">在庫一覧を見る</a>
     </div>
   </section>
 
   <section class="wrap section">
-    <div class="section-head"><h2>新着入荷</h2><a href="/stock?sort=new">すべて見る →</a></div>
+    <div class="section-head"><h2>新入荷</h2><a href="/stock?sort=new">すべて見る →</a></div>
     ${fresh.length ? `<div class="grid">${fresh.map(card).join('')}</div>` : '<p class="empty">現在、新着の生体はありません。</p>'}
   </section>
 
@@ -132,7 +149,7 @@ function home(s) {
   </section>
 
   <section class="wrap section">
-    <div class="section-head"><h2>店舗情報</h2><a href="/shop">詳しく見る →</a></div>
+    <div class="section-head"><h2>アクセス・営業時間</h2><a href="/shop">詳しく見る →</a></div>
     ${shopTable(s)}
   </section>`;
   return layout(s, { body, path: '/' });
@@ -162,7 +179,8 @@ function stock(s, query) {
   const available = list.filter((i) => i.status === 'available').length;
   const body = `
   <section class="wrap section">
-    <h1 class="page-title">在庫一覧</h1>
+    <p class="crumbs"><a href="/">ホーム</a> &gt; ${category ? `<a href="/stock">在庫一覧</a> &gt; ${esc(category)}` : '在庫一覧'}</p>
+    <h1 class="page-title">${category ? `${esc(category)}の在庫` : '在庫一覧'}</h1>
     <p class="page-lead">在庫状況はリアルタイムで更新しています。<span class="updated">最終更新 <time>${updatedAt()}</time></span></p>
     <form class="filters" action="/stock" method="get">
       ${category ? `<input type="hidden" name="category" value="${esc(category)}">` : ''}
@@ -186,16 +204,16 @@ function detail(s, it) {
   const photos = it.photos.length ? it.photos : [null];
   const body = `
   <section class="wrap section detail">
-    <a class="back" href="/stock">← 在庫一覧へ</a>
+    <p class="crumbs"><a href="/">ホーム</a> &gt; ${it.category ? `<a href="/stock?category=${encodeURIComponent(it.category)}">${esc(it.category)}</a>` : '<a href="/stock">在庫一覧</a>'} &gt; ${esc(it.species)} ${esc(it.morph)}</p>
     <div class="detail-grid">
       <div class="gallery">
         <div class="gallery-main${sold ? ' is-sold' : ''}">${photos[0] ? `<img src="${esc(photos[0])}" alt="${esc(it.species)}" id="mainPhoto">` : PLACEHOLDER}${sold ? '<span class="sold-band">売約済み</span>' : ''}</div>
         ${photos.length > 1 ? `<div class="gallery-thumbs">${photos.map((p, i) => `<button type="button" data-src="${esc(p)}"${i === 0 ? ' aria-current="true"' : ''}><img src="${esc(p)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
       </div>
       <div class="detail-info">
-        <p class="status-tag status-${it.status}">${STATUSES[it.status]}${!sold && items.isNew(it) ? ' <span class="badge-new">NEW</span>' : ''}</p>
+        <p class="status-tag status-${it.status}">${STATUSES[it.status]}${!sold && items.isNew(it) ? ' <span class="badge-new">New</span>' : ''}</p>
         <h1>${esc(it.species)}${it.morph ? `<span>${esc(it.morph)}</span>` : ''}</h1>
-        <div class="detail-price">${sold ? '<span class="price sold">売約済み</span>' : priceHtml(it, 'price big')}</div>
+        <div class="detail-price">${sold ? '<span class="price sold">売約済み</span>' : `<span class="price-label">販売価格</span>${priceHtml(it, 'price big')}`}</div>
         <dl class="spec">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
         ${it.note ? `<p class="note">${esc(it.note).replace(/\n/g, '<br>')}</p>` : ''}
         ${sold ? '<p class="sold-msg">この生体は売約済みとなりました。ほかの在庫もぜひご覧ください。</p>' : `<p class="buy-note">ご購入は店舗、またはイベント会場にてお願いいたします。</p>${contactButtons(s, it.no)}`}
@@ -208,13 +226,14 @@ function detail(s, it) {
 function shop(s) {
   const body = `
   <section class="wrap section">
-    <h1 class="page-title">店舗情報</h1>
+    <p class="crumbs"><a href="/">ホーム</a> &gt; アクセス・営業時間</p>
+    <h1 class="page-title">アクセス・営業時間</h1>
     ${shopTable(s)}
     ${s.mapUrl ? `<div class="map"><iframe src="${esc(s.mapUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="地図"></iframe></div>` : ''}
     <div class="buy"><h2>ご購入について</h2><p>ご購入は<strong>店舗、またはイベント会場</strong>にてお願いいたします。</p>${contactButtons(s)}</div>
     ${s.eventInfo ? `<div class="event"><h2>イベント出店情報</h2><p>${esc(s.eventInfo).replace(/\n/g, '<br>')}</p></div>` : ''}
   </section>`;
-  return layout(s, { title: '店舗情報', body, path: '/shop' });
+  return layout(s, { title: 'アクセス・営業時間', body, path: '/shop' });
 }
 
 function notFound(s) {

@@ -313,7 +313,7 @@
       const it = items.getByNo(decodeURIComponent(u.pathname.slice(6)));
       html = it && it.status !== 'hidden' ? views.detail(s, clone(it)) : views.notFound(s);
     } else html = views.notFound(s);
-    const doc = new DOMParser().parseFromString(html.split('/img/icon.svg').join(__ES.icon), 'text/html');
+    const doc = new DOMParser().parseFromString(html.split('/img/icon.svg').join(__ES.icon).split('/img/logo.png').join(__ES.logo), 'text/html');
     // 本番では並び替えを選ぶとページを読み直す。デモではページ内で切り替えるので、その指定を外す
     doc.querySelectorAll('[onchange]').forEach((el) => el.removeAttribute('onchange'));
     const active = site.root.activeElement;

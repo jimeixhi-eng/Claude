@@ -3,20 +3,20 @@
 <style>
 /* 2台の端末を並べて見せる展示台。左＝お客様のスマホ（公開サイト）、右＝スタッフのスマホ（在庫アプリ） */
 :root {
-  --bg: #e9e7e0;
+  --bg: #eceeec;
   --ink: #1d231f;
   --muted: #5f6a63;
-  --brand: #1f3a2c;
-  --accent: #b8913f;
+  --brand: #3f9f55;
+  --accent: #2f8f45;
   --frame: #161a17;
   --chip: #ffffff;
   --line: #d3cfc4;
   --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+  :root:not([data-theme="light"]) { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #4aa85d; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
 }
-:root[data-theme="dark"] { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+:root[data-theme="dark"] { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #4aa85d; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
 
 body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
 .wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }

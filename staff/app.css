@@ -1,13 +1,13 @@
 :root {
-  --bg: #f3f2ed; --surface: #fff; --ink: #1b201d; --muted: #6a736d; --line: #e1ddd3;
-  --brand: #1f3a2c; --brand-2: #2f5a43; --accent: #b8913f;
+  --bg: #f2f4f2; --surface: #fff; --ink: #222; --muted: #6f6f6f; --line: #e5e5e5;
+  --brand: #55bc6a; --brand-2: #2f8f45; --accent: #c8952e;
   --sold: #c2412d; --ok: #2f7d4f; --hidden: #6b6f86;
   --tab-h: 64px; color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #24483a; --brand-2: #3d7558; --accent: #d9b86a; color-scheme: dark; }
+  :root:not([data-theme="light"]) { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #3f8f50; --brand-2: #6fcf83; --accent: #d9b86a; color-scheme: dark; }
 }
-:root[data-theme="dark"] { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #24483a; --brand-2: #3d7558; --accent: #d9b86a; color-scheme: dark; }
+:root[data-theme="dark"] { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #3f8f50; --brand-2: #6fcf83; --accent: #d9b86a; color-scheme: dark; }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
@@ -21,11 +21,11 @@ img { display: block; max-width: 100%; }
 .top { position: sticky; top: 0; z-index: 5; background: var(--brand); color: #fff; padding: calc(env(safe-area-inset-top) + 10px) 16px 12px; }
 .top-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .top h1 { font-size: 17px; margin: 0; }
-.who { font-size: 12px; opacity: .8; }
+.who { font-size: 12px; }
 .stats { display: flex; gap: 8px; margin-top: 8px; }
-.stat { flex: 1; background: rgb(255 255 255 / .1); border-radius: 10px; padding: 6px 10px; }
+.stat { flex: 1; background: rgb(0 0 0 / .14); border-radius: 10px; padding: 6px 10px; }
 .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
-.stat span { font-size: 11px; opacity: .8; }
+.stat span { font-size: 11px; opacity: .95; }
 
 main { padding: 14px 16px calc(var(--tab-h) + env(safe-area-inset-bottom) + 24px); max-width: 640px; margin: 0 auto; }
 

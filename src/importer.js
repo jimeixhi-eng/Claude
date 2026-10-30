@@ -83,6 +83,8 @@ const CATEGORY_RULES = [
   ['ヘビ', /ヘビ|スネーク|パイソン|ボア|ナミヘビ|キングスネーク|ミルクスネーク|ホグノーズ|ラットスネーク/],
   ['カメ', /カメ|ガメ|トータス|タートル|リクガメ|ドロガメ|ハコガメ/],
   ['両生類', /カエル|フロッグ|ガエル|イモリ|サンショウウオ|ウーパー|アホロートル|ツノガエル|ヤドクガエル/],
+  ['中型インコ', /インコ|ヨウム|オウム|コニュア|ウロコ|シロハラ|ズグロ|アケボノ/],
+  ['奇虫', /サソリ|タランチュラ|ムカデ|ヤスデ|クモ|ゲジ|ウデムシ|サソリモドキ/],
 ];
 function guessCategory(text, categories) {
   for (const [cat, re] of CATEGORY_RULES) if (re.test(text) && (!categories || categories.includes(cat))) return cat;

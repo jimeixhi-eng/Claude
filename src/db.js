@@ -74,7 +74,8 @@ const ROLE_LIMITS = { owner: 2, staff: 20 };
 
 const DEFAULT_SETTINGS = {
   shopName: 'エキゾチックサプライ',
-  tagline: '爬虫類・両生類の専門店',
+  tagline: '大阪・寝屋川の爬虫類と中型インコ専門店',
+  intro: '',
   address: '',
   hours: '',
   holidays: '',
@@ -94,7 +95,7 @@ const DEFAULT_SETTINGS = {
   // 表示ルール
   newDays: 14,        // 入荷から何日間「新着」扱いにするか
   soldVisibleDays: 7, // 売約済みを何日間サイトに残すか
-  categories: ['ヤモリ', 'トカゲ', 'ヘビ', 'カメ', '両生類', 'その他'],
+  categories: ['ヤモリ', 'トカゲ', 'ヘビ', 'カメ', '両生類', '中型インコ', '奇虫', 'その他'],
 };
 
 function getSettings() {

@@ -1,6 +1,6 @@
 // スタッフアプリの Service Worker。
 // アプリの画面（HTML/JS/CSS）を端末に保存しておき、起動を一瞬にする。在庫データは常にサーバーから取る。
-const CACHE = 'es-staff-v2';
+const CACHE = 'es-staff-v3';
 const SHELL = ['/staff/', '/staff/app.js', '/staff/app.css', '/staff/manifest.webmanifest', '/img/icon.svg', '/staff/icon-192.png'];
 
 self.addEventListener('install', (e) => {

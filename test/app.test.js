@@ -77,7 +77,7 @@ test('公開サイト：販売中・ASK・非公開の表示', async () => {
   assert.match(html, /ASK/);
   assert.doesNotMatch(html, /コーンスネーク/); // 非公開
   assert.equal((await fetch(`${base}/item/3`)).status, 404);
-  assert.match(await (await fetch(`${base}/`)).text(), /新着入荷/);
+  assert.match(await (await fetch(`${base}/`)).text(), /新入荷/);
 });
 
 test('スタッフが売約にすると、公開サイトとリアルタイム通知に反映される', async () => {
