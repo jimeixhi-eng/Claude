@@ -1,0 +1,121 @@
+<title>エキゾチックサプライ デモ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 2台の端末を並べて見せる展示台。左＝お客様のスマホ（公開サイト）、右＝スタッフのスマホ（在庫アプリ） */
+:root {
+  --bg: #e9e7e0;
+  --ink: #1d231f;
+  --muted: #5f6a63;
+  --brand: #1f3a2c;
+  --accent: #b8913f;
+  --frame: #161a17;
+  --chip: #ffffff;
+  --line: #d3cfc4;
+  --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.intro { padding-block: 20px 8px; display: grid; gap: 6px; }
+.intro h1 { margin: 0; font-size: 20px; letter-spacing: .04em; text-wrap: balance; }
+.intro h1 small { font-size: 12px; font-weight: 600; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; margin-left: 8px; vertical-align: middle; letter-spacing: .1em; }
+.intro p { margin: 0; color: var(--muted); max-width: 70ch; }
+.try { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; counter-reset: step; font-size: 13px; }
+.try li { counter-increment: step; display: flex; gap: 6px; align-items: baseline; }
+.try li::before { content: counter(step); flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.try b { color: var(--ink); }
+
+.switch { display: none; gap: 6px; padding-block: 8px; }
+.switch button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 700 14px var(--font); }
+.switch button[aria-selected="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.stage { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; gap: 28px; padding-block: 12px 24px; }
+.stage[data-site-mode="pc"] { grid-template-columns: minmax(0, 1fr) auto; }
+.panel { display: grid; gap: 8px; min-width: 0; }
+.panel-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; }
+.panel-bar h2 { margin: 0 6px 0 0; font-size: 14px; }
+.panel-bar h2 span { display: block; font-size: 11px; font-weight: 500; color: var(--muted); }
+.tbtn { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 600 12px var(--font); cursor: pointer; }
+.tbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+#netToggle[aria-pressed="true"] { background: #c2412d; border-color: #c2412d; color: #fff; }
+.tbtn:focus-visible, .switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+
+.device { width: 390px; max-width: 100%; border: 10px solid var(--frame); border-radius: 40px; background: var(--frame); overflow: hidden; box-shadow: 0 18px 40px rgb(0 0 0 / .18); }
+.stage[data-site-mode="pc"] .site-device { width: 100%; border-width: 0; border-radius: 12px; }
+.urlbar { background: #2a2f2b; color: #cfd6d1; font-size: 11px; padding: 6px 14px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage[data-site-mode="pc"] .urlbar { text-align: left; padding-left: 16px; }
+.screen { position: relative; transform: translateZ(0); overflow: hidden; height: min(760px, calc(100vh - 220px)); min-height: 560px; background: #fff; }
+.stage[data-site-mode="pc"] .site-device .screen { height: min(760px, calc(100vh - 220px)); }
+
+.foot { padding-block: 4px 28px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--muted); font-size: 12px; }
+.foot code { font-size: 12px; color: var(--ink); }
+.demo-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 13px; z-index: 50; max-width: calc(100% - 32px); }
+
+@media (max-width: 900px) {
+  .switch { display: flex; }
+  .stage, .stage[data-site-mode="pc"] { grid-template-columns: minmax(0, 1fr); gap: 0; padding-block: 0 16px; }
+  .panel[data-active="false"] { display: none; }
+  .device, .stage[data-site-mode="pc"] .site-device { width: 100%; border-width: 0; border-radius: 14px; }
+  .screen, .stage[data-site-mode="pc"] .site-device .screen { height: calc(100dvh - 170px); min-height: 520px; }
+  .try { display: none; }
+  .mode-pc { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="wrap intro">
+  <h1>エキゾチックサプライ<small>デモ</small></h1>
+  <p>公開サイト（お客様が見る画面）とスタッフ用アプリを、本番と同じプログラムで動かしています。スタッフアプリで「売約済みにする」を押すと、公開サイトがその場で切り替わります。</p>
+  <ol class="try">
+    <li>右のアプリで管理番号 <b>102</b> を入力し「売約済みにする」</li>
+    <li>左のサイトが「売約済み」に変わるのを確認</li>
+    <li>「店主」に切り替えると価格の変更・リストの取り込みができます</li>
+    <li>「圏外にしてみる」で電波がないときの動きを確認</li>
+  </ol>
+</header>
+
+<div class="wrap switch" role="tablist">
+  <button type="button" data-show="site" aria-selected="true">公開サイト</button>
+  <button type="button" data-show="staff" aria-selected="false">スタッフアプリ</button>
+</div>
+
+<main class="wrap stage" data-site-mode="phone">
+  <section class="panel" data-panel="site" data-active="true">
+    <div class="panel-bar">
+      <h2>公開サイト<span>お客様が見る画面</span></h2>
+      <span class="mode-pc"><button type="button" class="tbtn" data-mode="phone" aria-pressed="true">スマホ</button>
+      <button type="button" class="tbtn" data-mode="pc" aria-pressed="false">パソコン</button></span>
+    </div>
+    <div class="device site-device">
+      <div class="urlbar" id="siteUrl">exotic-supply.jp</div>
+      <div class="screen" id="siteScreen"></div>
+    </div>
+  </section>
+  <section class="panel" data-panel="staff" data-active="false">
+    <div class="panel-bar">
+      <h2>スタッフアプリ<span>ホーム画面に追加して使う</span></h2>
+      <button type="button" class="tbtn" data-login="staff1" aria-pressed="true">スタッフ</button>
+      <button type="button" class="tbtn" data-login="tencho" aria-pressed="false">店主</button>
+      <span class="sep"></span>
+      <button type="button" class="tbtn" id="netToggle" aria-pressed="false">圏外にしてみる</button>
+    </div>
+    <div class="device">
+      <div class="screen" id="staffScreen"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <button type="button" class="tbtn" id="resetDemo">見本データに戻す</button>
+  <span>表示している在庫・店舗情報・登録番号はすべて見本です。写真は店舗からいただいたものに差し替わります。</span>
+  <span>ログアウトした場合：店主 <code>tencho</code> ／ スタッフ <code>staff1</code>、パスワード <code>demo1234</code></span>
+</footer>
+<div class="demo-toast" id="demoToast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<!--INJECT-->

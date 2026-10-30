@@ -12,7 +12,8 @@
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
-    "demo": "node --disable-warning=ExperimentalWarning scripts/demo.js"
+    "demo": "node --disable-warning=ExperimentalWarning scripts/demo.js",
+    "build:demo": "node --disable-warning=ExperimentalWarning scripts/build-demo.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

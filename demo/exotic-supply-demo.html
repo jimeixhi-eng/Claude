@@ -1,0 +1,1744 @@
+<title>エキゾチックサプライ デモ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 2台の端末を並べて見せる展示台。左＝お客様のスマホ（公開サイト）、右＝スタッフのスマホ（在庫アプリ） */
+:root {
+  --bg: #e9e7e0;
+  --ink: #1d231f;
+  --muted: #5f6a63;
+  --brand: #1f3a2c;
+  --accent: #b8913f;
+  --frame: #161a17;
+  --chip: #ffffff;
+  --line: #d3cfc4;
+  --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0e110f; --ink: #e8ebe7; --muted: #9aa49d; --brand: #3d7558; --accent: #d9b86a; --frame: #000; --chip: #1b211d; --line: #2c342f; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.intro { padding-block: 20px 8px; display: grid; gap: 6px; }
+.intro h1 { margin: 0; font-size: 20px; letter-spacing: .04em; text-wrap: balance; }
+.intro h1 small { font-size: 12px; font-weight: 600; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; margin-left: 8px; vertical-align: middle; letter-spacing: .1em; }
+.intro p { margin: 0; color: var(--muted); max-width: 70ch; }
+.try { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; counter-reset: step; font-size: 13px; }
+.try li { counter-increment: step; display: flex; gap: 6px; align-items: baseline; }
+.try li::before { content: counter(step); flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.try b { color: var(--ink); }
+
+.switch { display: none; gap: 6px; padding-block: 8px; }
+.switch button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 700 14px var(--font); }
+.switch button[aria-selected="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.stage { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; gap: 28px; padding-block: 12px 24px; }
+.stage[data-site-mode="pc"] { grid-template-columns: minmax(0, 1fr) auto; }
+.panel { display: grid; gap: 8px; min-width: 0; }
+.panel-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; }
+.panel-bar h2 { margin: 0 6px 0 0; font-size: 14px; }
+.panel-bar h2 span { display: block; font-size: 11px; font-weight: 500; color: var(--muted); }
+.tbtn { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 600 12px var(--font); cursor: pointer; }
+.tbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+#netToggle[aria-pressed="true"] { background: #c2412d; border-color: #c2412d; color: #fff; }
+.tbtn:focus-visible, .switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+
+.device { width: 390px; max-width: 100%; border: 10px solid var(--frame); border-radius: 40px; background: var(--frame); overflow: hidden; box-shadow: 0 18px 40px rgb(0 0 0 / .18); }
+.stage[data-site-mode="pc"] .site-device { width: 100%; border-width: 0; border-radius: 12px; }
+.urlbar { background: #2a2f2b; color: #cfd6d1; font-size: 11px; padding: 6px 14px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage[data-site-mode="pc"] .urlbar { text-align: left; padding-left: 16px; }
+.screen { position: relative; transform: translateZ(0); overflow: hidden; height: min(760px, calc(100vh - 220px)); min-height: 560px; background: #fff; }
+.stage[data-site-mode="pc"] .site-device .screen { height: min(760px, calc(100vh - 220px)); }
+
+.foot { padding-block: 4px 28px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--muted); font-size: 12px; }
+.foot code { font-size: 12px; color: var(--ink); }
+.demo-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 13px; z-index: 50; max-width: calc(100% - 32px); }
+
+@media (max-width: 900px) {
+  .switch { display: flex; }
+  .stage, .stage[data-site-mode="pc"] { grid-template-columns: minmax(0, 1fr); gap: 0; padding-block: 0 16px; }
+  .panel[data-active="false"] { display: none; }
+  .device, .stage[data-site-mode="pc"] .site-device { width: 100%; border-width: 0; border-radius: 14px; }
+  .screen, .stage[data-site-mode="pc"] .site-device .screen { height: calc(100dvh - 170px); min-height: 520px; }
+  .try { display: none; }
+  .mode-pc { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="wrap intro">
+  <h1>エキゾチックサプライ<small>デモ</small></h1>
+  <p>公開サイト（お客様が見る画面）とスタッフ用アプリを、本番と同じプログラムで動かしています。スタッフアプリで「売約済みにする」を押すと、公開サイトがその場で切り替わります。</p>
+  <ol class="try">
+    <li>右のアプリで管理番号 <b>102</b> を入力し「売約済みにする」</li>
+    <li>左のサイトが「売約済み」に変わるのを確認</li>
+    <li>「店主」に切り替えると価格の変更・リストの取り込みができます</li>
+    <li>「圏外にしてみる」で電波がないときの動きを確認</li>
+  </ol>
+</header>
+
+<div class="wrap switch" role="tablist">
+  <button type="button" data-show="site" aria-selected="true">公開サイト</button>
+  <button type="button" data-show="staff" aria-selected="false">スタッフアプリ</button>
+</div>
+
+<main class="wrap stage" data-site-mode="phone">
+  <section class="panel" data-panel="site" data-active="true">
+    <div class="panel-bar">
+      <h2>公開サイト<span>お客様が見る画面</span></h2>
+      <span class="mode-pc"><button type="button" class="tbtn" data-mode="phone" aria-pressed="true">スマホ</button>
+      <button type="button" class="tbtn" data-mode="pc" aria-pressed="false">パソコン</button></span>
+    </div>
+    <div class="device site-device">
+      <div class="urlbar" id="siteUrl">exotic-supply.jp</div>
+      <div class="screen" id="siteScreen"></div>
+    </div>
+  </section>
+  <section class="panel" data-panel="staff" data-active="false">
+    <div class="panel-bar">
+      <h2>スタッフアプリ<span>ホーム画面に追加して使う</span></h2>
+      <button type="button" class="tbtn" data-login="staff1" aria-pressed="true">スタッフ</button>
+      <button type="button" class="tbtn" data-login="tencho" aria-pressed="false">店主</button>
+      <span class="sep"></span>
+      <button type="button" class="tbtn" id="netToggle" aria-pressed="false">圏外にしてみる</button>
+    </div>
+    <div class="device">
+      <div class="screen" id="staffScreen"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <button type="button" class="tbtn" id="resetDemo">見本データに戻す</button>
+  <span>表示している在庫・店舗情報・登録番号はすべて見本です。写真は店舗からいただいたものに差し替わります。</span>
+  <span>ログアウトした場合：店主 <code>tencho</code> ／ スタッフ <code>staff1</code>、パスワード <code>demo1234</code></span>
+</footer>
+<div class="demo-toast" id="demoToast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>window.__ES = { seed: {"items":[{"id":1,"no":"101","category":"ヤモリ","species":"ヒョウモントカゲモドキ","morph":"ハイポタンジェリン","sex":"オス","size":"ベビー","origin":"CB","birth":"","arrived_at":"2026-10-30","price":12800,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":2,"no":"102","category":"ヤモリ","species":"ヒョウモントカゲモドキ","morph":"マックスノー エクリプス","sex":"メス","size":"約10cm","origin":"","birth":"","arrived_at":"2026-10-30","price":18000,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":3,"no":"103","category":"ヘビ","species":"ボールパイソン","morph":"パステル","sex":"オス","size":"","origin":"","birth":"2026年6月","arrived_at":"2026-10-30","price":35000,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":4,"no":"104","category":"ヘビ","species":"コーンスネーク","morph":"アメラニスティック","sex":"不明","size":"ハッチリング","origin":"","birth":"","arrived_at":"2026-10-30","price":8800,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":5,"no":"105","category":"トカゲ","species":"フトアゴヒゲトカゲ","morph":"ハイポトランス","sex":"ペア","size":"ヤング","origin":"","birth":"","arrived_at":"2026-10-30","price":null,"price_ask":true,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":6,"no":"107","category":"ヤモリ","species":"クレステッドゲッコー","morph":"リリーホワイト","sex":"メス","size":"","origin":"","birth":"","arrived_at":"2026-10-30","price":45000,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":7,"no":"106","category":"カメ","species":"ギリシャリクガメ","morph":"","sex":"不明","size":"甲長8cm前後","origin":"","birth":"","arrived_at":"2026-10-30","price":null,"price_ask":true,"status":"available","sold_at":null,"note":"よく餌を食べます","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":8,"no":"201","category":"ヤモリ","species":"クレステッドゲッコー","morph":"ハーレクイン","sex":"メス","size":"ヤング","origin":"CB","birth":"2026-03-10","arrived_at":"2026-10-25","price":28000,"price_ask":false,"status":"available","sold_at":null,"note":"よく食べます","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":9,"no":"202","category":"ヘビ","species":"ボールパイソン","morph":"バナナ パステル","sex":"オス","size":"ベビー","origin":"CB","birth":"2026-07-01","arrived_at":"2026-10-27","price":65000,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":10,"no":"203","category":"カメ","species":"ヘルマンリクガメ","morph":"","sex":"不明","size":"甲長6cm","origin":"CB","birth":"","arrived_at":"2026-10-29","price":null,"price_ask":true,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":11,"no":"204","category":"トカゲ","species":"アオジタトカゲ","morph":"ノーザン","sex":"ペア","size":"アダルト","origin":"CB","birth":"","arrived_at":"2026-10-20","price":120000,"price_ask":false,"status":"available","sold_at":null,"note":"ペア販売","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":12,"no":"301","category":"ヤモリ","species":"ヒョウモントカゲモドキ","morph":"スーパーマックスノー","sex":"オス","size":"ベビー","origin":"","birth":"","arrived_at":"2026-10-28","price":15800,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":13,"no":"302","category":"ヤモリ","species":"ニシアフリカトカゲモドキ","morph":"オレオ","sex":"メス","size":"ヤング","origin":"","birth":"","arrived_at":"2026-10-28","price":22000,"price_ask":false,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":14,"no":"303","category":"ヘビ","species":"コーンスネーク","morph":"パルメット","sex":"不明","size":"ハッチリング","origin":"","birth":"","arrived_at":"2026-10-29","price":null,"price_ask":true,"status":"available","sold_at":null,"note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":15,"no":"304","category":"トカゲ","species":"パンサーカメレオン","morph":"アンビロブ","sex":"オス","size":"15cm","origin":"","birth":"","arrived_at":"2026-10-01","price":48000,"price_ask":false,"status":"sold","sold_at":"2026-10-30 09:47:04","note":"","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"},{"id":16,"no":"108","category":"","species":"ヒョウモントカゲモドキ","morph":"ブラックナイト","sex":"オス","size":"ベビー","origin":"","birth":"","arrived_at":"2026-10-30","price":98000,"price_ask":false,"status":"hidden","sold_at":null,"note":"入荷直後のため準備中","photos":[],"created_at":"2026-10-30 09:47:04","updated_at":"2026-10-30 09:47:04"}],"settings":{"shopName":"エキゾチックサプライ","tagline":"爬虫類・両生類の専門店","address":"東京都〇〇区〇〇 1-2-3（見本）","hours":"13:00〜20:00\n土日祝 12:00〜19:00","holidays":"毎週水曜日","phone":"03-0000-0000","lineUrl":"https://line.me/","lineId":"@exoticsupply（見本）","mapUrl":"","eventInfo":"11/3（祝）〇〇レプタイルズフェア 出店予定\nブース番号は決まり次第お知らせします","notice":"11/3（祝）はレプタイルズイベント出店のため店舗休業です","bizName":"","regNo":"動販 第000000号（見本）","regDate":"2024年4月1日","regExpiry":"2029年3月31日","regType":"販売","manager":"山田 太郎（見本）","newDays":14,"soldVisibleDays":7,"categories":["ヤモリ","トカゲ","ヘビ","カメ","両生類","その他"]}}, cssSite: ":root {\n  --bg: #f6f4ee;\n  --surface: #ffffff;\n  --ink: #1d231f;\n  --muted: #66706a;\n  --line: #e2ddd1;\n  --brand: #1f3a2c;\n  --brand-2: #2f5a43;\n  --accent: #b8913f;\n  --new: #d0542c;\n  --sold: #8a8f8c;\n  --line-green: #06c755;\n  --radius: 14px;\n  --shadow: 0 1px 2px rgb(0 0 0 / .05), 0 4px 16px rgb(0 0 0 / .05);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root:not([data-theme=\"light\"]) {\n    --bg: #121613; --surface: #1b211d; --ink: #e9ece8; --muted: #9aa49d; --line: #2c342f;\n    --brand: #2c5a43; --brand-2: #3d7558; --accent: #d9b86a; --sold: #7d837f; --shadow: none; color-scheme: dark;\n  }\n}\n:root[data-theme=\"dark\"] {\n  --bg: #121613; --surface: #1b211d; --ink: #e9ece8; --muted: #9aa49d; --line: #2c342f;\n  --brand: #2c5a43; --brand-2: #3d7558; --accent: #d9b86a; --sold: #7d837f; --shadow: none; color-scheme: dark;\n}\n\n* { box-sizing: border-box; }\n[hidden] { display: none !important; }\nhtml { -webkit-text-size-adjust: 100%; }\nbody {\n  margin: 0; background: var(--bg); color: var(--ink);\n  font: 15px/1.7 \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Noto Sans JP\", \"Yu Gothic\", Meiryo, system-ui, sans-serif;\n}\nimg { max-width: 100%; display: block; }\na { color: inherit; }\nh1, h2, h3 { line-height: 1.35; margin: 0; }\n.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }\n\n/* header */\n.site-header { position: sticky; top: 0; z-index: 10; background: var(--brand); color: #fff; }\n.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; }\n.logo { display: flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }\n.logo img { border-radius: 8px; }\n.nav { display: flex; gap: 2px; }\n.nav a { text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 14px; white-space: nowrap; opacity: .85; }\n.nav a[aria-current] { background: rgb(255 255 255 / .14); opacity: 1; }\n@media (max-width: 480px) { .logo span { font-size: 14px; } .nav a { padding: 6px 8px; font-size: 13px; } .nav a[href=\"/\"] { display: none; } }\n.notice { background: var(--accent); color: #1d1a10; font-size: 14px; padding: 8px 0; }\n\n/* hero */\n.hero { background: linear-gradient(160deg, var(--brand) 0%, var(--brand-2) 100%); color: #fff; padding: 40px 0 44px; }\n.hero h1 { font-size: clamp(28px, 6vw, 44px); letter-spacing: .06em; }\n.hero-sub { margin: 0 0 4px; opacity: .8; font-size: 14px; letter-spacing: .1em; }\n.hero-stat { margin: 14px 0 22px; font-size: 15px; }\n.hero-stat strong { font-size: 30px; color: var(--accent); margin-right: 2px; font-variant-numeric: tabular-nums; }\n.updated { display: inline-block; margin-left: 10px; font-size: 12px; opacity: .75; }\n\n/* buttons */\n.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; padding: 0 20px; border-radius: 999px; font-weight: 700; text-decoration: none; border: 0; font-size: 15px; }\n.btn-primary { background: var(--accent); color: #1d1a10; }\n.btn-line { background: var(--line-green); color: #fff; }\n.btn-tel { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }\n\n/* sections */\n.section { padding-top: 36px; padding-bottom: 8px; }\n.section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }\n.section-head h2, .buy h2, .event h2 { font-size: 20px; }\n.section-head a { font-size: 14px; color: var(--brand-2); text-decoration: none; font-weight: 700; }\n.page-title { font-size: 24px; }\n.page-lead { color: var(--muted); margin: 4px 0 16px; font-size: 14px; }\n.page-lead .updated { opacity: 1; display: block; margin-left: 0; }\n.empty { color: var(--muted); padding: 24px 0; }\n\n/* grid & cards */\n.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }\n@media (max-width: 400px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }\n.card { background: var(--surface); border-radius: var(--radius); overflow: hidden; text-decoration: none; box-shadow: var(--shadow); border: 1px solid var(--line); display: flex; flex-direction: column; transition: transform .15s; }\n.card:hover { transform: translateY(-2px); }\n.thumb { position: relative; aspect-ratio: 1; background: color-mix(in srgb, var(--brand) 8%, var(--surface)); color: var(--brand-2); display: grid; place-items: center; }\n.thumb img { width: 100%; height: 100%; object-fit: cover; }\n.thumb svg, .gallery-main svg { width: 45%; }\n.badge-new { position: absolute; top: 8px; left: 8px; background: var(--new); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .08em; padding: 2px 8px; border-radius: 999px; }\n.status-tag .badge-new { position: static; margin-left: 6px; }\n.sold-band { position: absolute; inset: auto 0 50% 0; transform: translateY(50%) rotate(-8deg); background: rgb(20 20 20 / .78); color: #fff; text-align: center; font-weight: 800; letter-spacing: .3em; padding: 6px 0; font-size: 15px; }\n.card.is-sold .thumb img, .gallery-main.is-sold img { filter: grayscale(.85) brightness(.9); }\n.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; flex: 1; }\n.card-cat { margin: 0; font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }\n.card-no { font-variant-numeric: tabular-nums; }\n.card-title { font-size: 14px; font-weight: 700; }\n.card-morph { margin: 0; font-size: 13px; color: var(--brand-2); font-weight: 600; }\n.card-meta { margin: 0; font-size: 12px; color: var(--muted); }\n.card-meta span { opacity: .5; }\n.price { margin-top: auto; padding-top: 6px; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }\n.price small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }\n.price.ask { color: var(--accent); }\n.price.ask small { display: block; margin: 0; }\n.price.sold { color: var(--sold); font-size: 15px; }\n.price.big { font-size: 30px; }\n\n/* category tiles */\n.cat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }\n.cat-tiles a { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; text-decoration: none; display: flex; justify-content: space-between; align-items: center; font-weight: 700; }\n.cat-tiles b { color: var(--brand-2); font-variant-numeric: tabular-nums; }\n\n/* buy / contact */\n.buy { margin-top: 8px; }\n.buy p { margin: 8px 0; }\n.contact { margin-top: 14px; }\n.contact-lead { font-size: 14px; margin: 0 0 8px; }\n.contact-btns { display: flex; flex-wrap: wrap; gap: 10px; }\n.event { margin-top: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }\n.event h3 { font-size: 16px; }\n\n/* filters */\n.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }\n.search { flex: 1 1 220px; min-height: 44px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 0 12px; font-size: 16px; }\n.filters select { min-height: 44px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 0 10px; font-size: 15px; }\n.toggle { display: flex; gap: 6px; align-items: center; font-size: 14px; white-space: nowrap; }\n.toggle input { width: 18px; height: 18px; accent-color: var(--brand-2); }\n.chips { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 4px; scrollbar-width: none; }\n.chips::-webkit-scrollbar { display: none; }\n.chip { flex: none; padding: 6px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; font-size: 14px; }\n.chip[aria-current] { background: var(--brand); color: #fff; border-color: var(--brand); }\n.result-count { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }\n\n/* detail */\n.back { display: inline-block; margin-bottom: 14px; color: var(--muted); text-decoration: none; font-size: 14px; }\n.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }\n@media (max-width: 760px) { .detail-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; } }\n.gallery-main { position: relative; aspect-ratio: 1; border-radius: var(--radius); overflow: hidden; background: color-mix(in srgb, var(--brand) 8%, var(--surface)); color: var(--brand-2); display: grid; place-items: center; }\n.gallery-main img { width: 100%; height: 100%; object-fit: cover; }\n.gallery-thumbs { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; }\n.gallery-thumbs button { flex: none; width: 64px; height: 64px; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; cursor: pointer; background: none; }\n.gallery-thumbs button[aria-current] { border-color: var(--accent); }\n.gallery-thumbs img { width: 100%; height: 100%; object-fit: cover; }\n.status-tag { margin: 0 0 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; }\n.status-available { background: color-mix(in srgb, var(--brand-2) 15%, transparent); color: var(--brand-2); }\n.status-sold { background: color-mix(in srgb, var(--sold) 20%, transparent); color: var(--sold); }\n.detail-info h1 { font-size: 24px; }\n.detail-info h1 span { display: block; font-size: 17px; color: var(--brand-2); margin-top: 2px; }\n.detail-price { margin: 10px 0 14px; }\n.spec { margin: 0; border-top: 1px solid var(--line); }\n.spec div, .shop-table div { display: grid; grid-template-columns: 9em 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }\n.spec dt, .shop-table dt { color: var(--muted); }\n.spec dd, .shop-table dd { margin: 0; }\n.note { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; }\n.buy-note { font-size: 14px; color: var(--muted); margin-top: 18px; }\n.sold-msg { margin-top: 18px; font-weight: 700; color: var(--sold); }\n\n.shop-table { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px; }\n.shop-table div:last-child { border-bottom: 0; }\n.map { margin-top: 16px; border-radius: var(--radius); overflow: hidden; aspect-ratio: 16/9; border: 1px solid var(--line); }\n.map iframe { width: 100%; height: 100%; border: 0; }\n\n/* footer */\n.site-footer { margin-top: 56px; background: var(--brand); color: rgb(255 255 255 / .85); padding: 28px 0 90px; font-size: 13px; }\n.foot-buy { font-weight: 700; color: #fff; }\n.legal { margin: 14px 0; border-top: 1px solid rgb(255 255 255 / .15); padding-top: 12px; }\n.legal-title { font-weight: 700; color: #fff; margin-bottom: 4px; }\n.legal div { display: grid; grid-template-columns: 9.5em 1fr; gap: 8px; }\n.legal dd { margin: 0; }\n.copy { opacity: .6; margin-top: 16px; }\n\n/* live indicator */\n.live-pill { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 999px; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; z-index: 20; }\n.live-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-green); animation: pulse 2s infinite; }\n.live-pill.off .dot { background: var(--sold); animation: none; }\n.live-pill.flash { border-color: var(--accent); }\n@keyframes pulse { 50% { opacity: .35; } }\n.card.changed { animation: flash 1.6s; }\n@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } }\n@media (prefers-reduced-motion: reduce) { .card, .live-pill .dot, .card.changed { animation: none; transition: none; } }\n", cssStaff: ":root {\n  --bg: #f3f2ed; --surface: #fff; --ink: #1b201d; --muted: #6a736d; --line: #e1ddd3;\n  --brand: #1f3a2c; --brand-2: #2f5a43; --accent: #b8913f;\n  --sold: #c2412d; --ok: #2f7d4f; --hidden: #6b6f86;\n  --tab-h: 64px; color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root:not([data-theme=\"light\"]) { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #24483a; --brand-2: #3d7558; --accent: #d9b86a; color-scheme: dark; }\n}\n:root[data-theme=\"dark\"] { --bg: #101411; --surface: #1a201c; --ink: #e8ebe7; --muted: #98a29b; --line: #2b332e; --brand: #24483a; --brand-2: #3d7558; --accent: #d9b86a; color-scheme: dark; }\n\n* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }\n[hidden] { display: none !important; }\nhtml, body { margin: 0; background: var(--bg); color: var(--ink); }\nbody { font: 16px/1.5 \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif; overscroll-behavior-y: contain; }\nbutton, input, select, textarea { font: inherit; color: inherit; }\nimg { display: block; max-width: 100%; }\n.boot { display: grid; place-items: center; height: 100vh; color: var(--muted); }\n\n/* top bar */\n.top { position: sticky; top: 0; z-index: 5; background: var(--brand); color: #fff; padding: calc(env(safe-area-inset-top) + 10px) 16px 12px; }\n.top-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }\n.top h1 { font-size: 17px; margin: 0; }\n.who { font-size: 12px; opacity: .8; }\n.stats { display: flex; gap: 8px; margin-top: 8px; }\n.stat { flex: 1; background: rgb(255 255 255 / .1); border-radius: 10px; padding: 6px 10px; }\n.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }\n.stat span { font-size: 11px; opacity: .8; }\n\nmain { padding: 14px 16px calc(var(--tab-h) + env(safe-area-inset-bottom) + 24px); max-width: 640px; margin: 0 auto; }\n\n/* 管理番号入力 */\n.no-input { position: relative; }\n.no-input input { width: 100%; height: 64px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); padding: 0 56px 0 18px; font-size: 26px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; }\n.no-input input:focus { outline: none; border-color: var(--brand-2); }\n.no-input .clear { position: absolute; right: 8px; top: 8px; width: 48px; height: 48px; border: 0; background: none; font-size: 22px; color: var(--muted); }\n.hint { font-size: 13px; color: var(--muted); margin: 8px 2px 14px; }\n\n/* 生体カード */\n.list { display: flex; flex-direction: column; gap: 10px; }\n.item { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: grid; grid-template-columns: 64px 1fr; gap: 10px; }\n.item.flash { animation: flash 1.2s; }\n@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } }\n.item .ph { width: 64px; height: 64px; border-radius: 10px; background: color-mix(in srgb, var(--brand) 10%, var(--surface)); object-fit: cover; }\n.item-main { min-width: 0; }\n.item-head { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }\n.item-no { font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }\n.pill { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }\n.pill.available { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }\n.pill.sold { background: color-mix(in srgb, var(--sold) 15%, transparent); color: var(--sold); }\n.pill.hidden { background: color-mix(in srgb, var(--hidden) 18%, transparent); color: var(--hidden); }\n.item-name { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.item-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.item-actions { grid-column: 1 / -1; display: flex; gap: 8px; }\n.act { flex: 1; min-height: 52px; border-radius: 12px; border: 0; font-weight: 800; font-size: 16px; }\n.act.sell { background: var(--sold); color: #fff; }\n.act.back { background: var(--ok); color: #fff; }\n.act.sub { flex: 0 0 auto; padding: 0 14px; background: transparent; border: 1px solid var(--line); color: var(--muted); font-weight: 700; font-size: 14px; }\n.act:active { transform: scale(.98); }\n.act[disabled] { opacity: .5; }\n\n.empty { text-align: center; color: var(--muted); padding: 28px 0; }\n.seg { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; }\n.seg button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 14px; }\n.seg button[aria-pressed=\"true\"] { background: var(--brand); color: #fff; border-color: var(--brand); }\n.search { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; font-size: 16px; margin-bottom: 10px; }\n\n/* tab bar */\n.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }\n.tabs button { flex: 1; height: var(--tab-h); border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--muted); }\n.tabs button svg { width: 24px; height: 24px; }\n.tabs button[aria-current=\"page\"] { color: var(--brand-2); font-weight: 700; }\n\n/* forms */\n.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }\n.card h2 { font-size: 16px; margin: 0 0 10px; }\n.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }\n.field > span { font-size: 13px; color: var(--muted); font-weight: 600; }\n.field input, .field select, .field textarea { min-height: 46px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 8px 12px; font-size: 16px; width: 100%; }\n.field textarea { min-height: 90px; resize: vertical; }\n.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }\n.check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 600; }\n.check input { width: 22px; height: 22px; accent-color: var(--brand-2); }\n.btn { min-height: 50px; border-radius: 12px; border: 0; padding: 0 18px; font-weight: 800; font-size: 16px; background: var(--brand-2); color: #fff; width: 100%; }\n.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }\n.btn.danger { background: transparent; border: 1px solid var(--sold); color: var(--sold); }\n.btn + .btn { margin-top: 8px; }\n.err { color: var(--sold); font-size: 14px; min-height: 1.2em; margin: 6px 0; }\n.note { font-size: 13px; color: var(--muted); }\n.locked { font-size: 12px; color: var(--muted); }\n\n/* login */\n.login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--brand); }\n.login .card { width: 100%; max-width: 380px; }\n.login .logo { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }\n.login .logo img { width: 40px; height: 40px; border-radius: 10px; }\n\n/* sheet */\n.sheet-back { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }\n.sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); }\n.sheet-grip { width: 40px; height: 5px; background: var(--line); border-radius: 3px; margin: 4px auto 10px; }\n.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }\n.sheet-head h2 { font-size: 18px; margin: 0; }\n.x { border: 0; background: none; font-size: 26px; width: 44px; height: 44px; color: var(--muted); }\n.photos { display: flex; gap: 8px; flex-wrap: wrap; }\n.photos .ph { position: relative; width: 84px; height: 84px; }\n.photos .ph img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }\n.photos .ph button { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--sold); color: #fff; font-size: 14px; }\n.photos label.add { width: 84px; height: 84px; border: 2px dashed var(--line); border-radius: 10px; display: grid; place-items: center; color: var(--muted); font-size: 13px; text-align: center; }\n\n/* 取り込みプレビュー */\n.prev { display: flex; flex-direction: column; gap: 8px; }\n.prev-row { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; font-size: 14px; }\n.prev-row input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--brand-2); }\n.prev-row .w { color: var(--accent); font-size: 12px; }\n.tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 4px; }\n.tag.new { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }\n.tag.upd { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }\n\n.menu { display: flex; flex-direction: column; }\n.menu button { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; font-size: 16px; font-weight: 600; display: flex; justify-content: space-between; }\n.menu button::after { content: '›'; color: var(--muted); }\n\n.log { font-size: 13px; border-bottom: 1px solid var(--line); padding: 8px 0; }\n.log time { color: var(--muted); font-size: 12px; margin-right: 6px; }\n.user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); gap: 8px; }\n.user-row small { color: var(--muted); }\n.user-row .act.sub { min-height: 40px; }\n\n/* toast */\n.toast { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px); z-index: 30; background: #1c1f1d; color: #fff; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .25); max-width: 616px; margin: 0 auto; font-size: 15px; }\n.toast button { border: 0; background: var(--accent); color: #1b1a12; font-weight: 800; border-radius: 10px; padding: 10px 14px; white-space: nowrap; }\n.toast.error { background: var(--sold); }\n.offline { position: fixed; top: 0; left: 0; right: 0; z-index: 40; background: var(--sold); color: #fff; text-align: center; font-size: 13px; padding: calc(env(safe-area-inset-top) + 4px) 8px 4px; }\n.pending { position: fixed; left: 0; right: 0; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); z-index: 7; background: var(--accent); color: #1b1a12; text-align: center; font-size: 13px; font-weight: 700; padding: 6px 8px; }\nbody:has(#pending:not([hidden])) .toast { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 44px); }\n", staffBody: "\u003cdiv id=\"app\">\u003cdiv class=\"boot\">読み込み中…\u003c/div>\u003c/div>\n\u003cdiv id=\"toast\" class=\"toast\" role=\"status\" aria-live=\"polite\" hidden>\u003c/div>\n\u003cdiv id=\"offline\" class=\"offline\" hidden>圏外です。操作は端末に保存され、電波が戻ると自動で送信されます。\u003c/div>\n\u003cdiv id=\"pending\" class=\"pending\" hidden>\u003c/div>", icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxZjNhMmMiLz48cGF0aCBkPSJNMTIgNDBjNi0xMSAxNy0xNiAyOC0xMyA2IDEuNSAxMCA1IDEyIDktNC0xLjYtOC0xLjQtMTEgLjYgMyAxIDUgMyA2IDYtNi40LTMtMTMuNi0zLTIwIDAtNSAyLjItMTAuNiAyLTE1LTIuNnoiIGZpbGw9IiNkOWI4NmEiLz48Y2lyY2xlIGN4PSI0NiIgY3k9IjMyLjUiIHI9IjEuOCIgZmlsbD0iIzFmM2EyYyIvPjwvc3ZnPgo=" };</script>
+<script>const ES_MODULES = {
+'./views': function (require, module, exports) {
+'use strict';
+// 公開サイトの HTML。サーバー側で組み立てて返すので表示が速く、検索エンジンにも載る。
+// 在庫が変わると site.js が #live の中身だけを差し替える。
+const { STATUSES } = require('./db');
+const items = require('./items');
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const yen = (n) => `¥${Number(n).toLocaleString('ja-JP')}`;
+const SEX_MARK = { オス: '♂ オス', メス: '♀ メス', ペア: '♂♀ ペア', 不明: '性別不明' };
+
+function priceHtml(it, cls = 'price') {
+  if (it.price_ask) return `<span class="${cls} ask">ASK<small>価格はお問い合わせください</small></span>`;
+  if (it.price == null) return `<span class="${cls} ask">お問い合わせ</span>`;
+  return `<span class="${cls}">${yen(it.price)}<small>（税込）</small></span>`;
+}
+
+const PLACEHOLDER = `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 40c6-10 16-14 26-12 6 1 10 5 12 9-4-2-8-2-11 0 3 1 5 3 6 6-6-3-13-3-19 0-5 2-10 2-14-3z" fill="currentColor" opacity=".35"/><circle cx="46" cy="33" r="1.6" fill="currentColor" opacity=".5"/></svg>`;
+
+function card(it) {
+  const photo = it.photos[0];
+  const sold = it.status === 'sold';
+  return `<a class="card${sold ? ' is-sold' : ''}" href="/item/${encodeURIComponent(it.no)}" data-no="${esc(it.no)}">
+    <div class="thumb">${photo ? `<img src="${esc(photo)}" alt="${esc(it.species)} ${esc(it.morph)}" loading="lazy" decoding="async">` : PLACEHOLDER}
+      ${sold ? '<span class="sold-band">売約済み</span>' : items.isNew(it) ? '<span class="badge-new">NEW</span>' : ''}
+    </div>
+    <div class="card-body">
+      <p class="card-cat">${esc(it.category || '生体')}<span class="card-no">No.${esc(it.no)}</span></p>
+      <h3 class="card-title">${esc(it.species)}</h3>
+      ${it.morph ? `<p class="card-morph">${esc(it.morph)}</p>` : ''}
+      <p class="card-meta">${[SEX_MARK[it.sex] || it.sex, it.size, it.origin].filter(Boolean).map(esc).join('<span>・</span>')}</p>
+      ${sold ? '<span class="price sold">売約済み</span>' : priceHtml(it)}
+    </div>
+  </a>`;
+}
+
+function contactButtons(s, no) {
+  const btns = [];
+  if (s.lineUrl) btns.push(`<a class="btn btn-line" href="${esc(s.lineUrl)}" target="_blank" rel="noopener">LINEで問い合わせ</a>`);
+  if (s.phone) btns.push(`<a class="btn btn-tel" href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">電話する ${esc(s.phone)}</a>`);
+  if (!btns.length) return '';
+  return `<div class="contact">${no ? `<p class="contact-lead">お問い合わせの際は<strong>「No.${esc(no)}」</strong>とお伝えください。</p>` : ''}<div class="contact-btns">${btns.join('')}</div></div>`;
+}
+
+function layout(s, { title, description, body, path = '/', image }) {
+  const nav = [['/', 'トップ'], ['/stock', '在庫一覧'], ['/shop', '店舗情報']]
+    .map(([href, label]) => `<a href="${href}"${(href === '/' ? path === '/' : path.startsWith(href)) ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const fullTitle = title ? `${title} | ${s.shopName}` : `${s.shopName} | ${s.tagline}`;
+  return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${esc(fullTitle)}</title>
+<meta name="description" content="${esc(description || `${s.shopName}の最新在庫と価格。在庫状況はリアルタイムで更新しています。`)}">
+<meta property="og:title" content="${esc(fullTitle)}">
+<meta property="og:type" content="website">
+${image ? `<meta property="og:image" content="${esc(image)}">` : ''}
+<meta name="theme-color" content="#1f3a2c">
+<link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/site.css?v=1">
+<script src="/js/site.js?v=1" defer><\/script>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="logo" href="/"><img src="/img/icon.svg" alt="" width="32" height="32"><span>${esc(s.shopName)}</span></a>
+    <nav class="nav">${nav}</nav>
+  </div>
+</header>
+${s.notice ? `<div class="notice"><div class="wrap">${esc(s.notice)}</div></div>` : ''}
+<main id="live">${body}</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <p class="foot-buy">ご購入は店舗、またはイベント会場にてお願いいたします。</p>
+    ${legalHtml(s)}
+    <p class="copy">© ${new Date().getFullYear()} ${esc(s.shopName)}</p>
+  </div>
+</footer>
+<div class="live-pill" id="livePill" hidden><span class="dot"></span><span id="liveText">在庫をリアルタイム表示中</span></div>
+</body>
+</html>`;
+}
+
+// 動物取扱業の標識（法定表示）
+function legalHtml(s) {
+  const rows = [
+    ['氏名又は名称', s.bizName || s.shopName],
+    ['事業所の名称', s.shopName],
+    ['事業所の所在地', s.address],
+    ['動物取扱業の種別', s.regType],
+    ['登録番号', s.regNo],
+    ['登録年月日', s.regDate],
+    ['有効期間の末日', s.regExpiry],
+    ['動物取扱責任者', s.manager],
+  ].filter(([, v]) => v);
+  if (!s.regNo) return '';
+  return `<dl class="legal"><dt class="legal-title">第一種動物取扱業者の表示</dt>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+}
+
+const updatedAt = () => new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+
+function home(s) {
+  const fresh = items.listNewArrivals(12);
+  const counts = items.countsPublic();
+  const total = counts.filter((c) => c.category !== '__sold').reduce((a, c) => a + c.n, 0);
+  const cats = s.categories.map((c) => [c, counts.find((x) => x.category === c)?.n || 0]);
+  const body = `
+  <section class="hero">
+    <div class="wrap">
+      <p class="hero-sub">${esc(s.tagline)}</p>
+      <h1>${esc(s.shopName)}</h1>
+      <p class="hero-stat"><strong>${total}</strong> 匹 販売中 <span class="updated">最終更新 <time>${updatedAt()}</time></span></p>
+      <a class="btn btn-primary" href="/stock">在庫一覧を見る</a>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>新着入荷</h2><a href="/stock?sort=new">すべて見る →</a></div>
+    ${fresh.length ? `<div class="grid">${fresh.map(card).join('')}</div>` : '<p class="empty">現在、新着の生体はありません。</p>'}
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>種類から探す</h2></div>
+    <div class="cat-tiles">${cats.map(([c, n]) => `<a href="/stock?category=${encodeURIComponent(c)}"><span>${esc(c)}</span><b>${n}</b></a>`).join('')}</div>
+  </section>
+
+  <section class="wrap section buy">
+    <h2>ご購入について</h2>
+    <p>ご購入は<strong>店舗、またはイベント会場</strong>にてお願いいたします。<br>在庫・生体についてのお問い合わせはLINEまたはお電話でどうぞ。</p>
+    ${contactButtons(s)}
+    ${s.eventInfo ? `<div class="event"><h3>イベント出店情報</h3><p>${esc(s.eventInfo).replace(/\n/g, '<br>')}</p></div>` : ''}
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>店舗情報</h2><a href="/shop">詳しく見る →</a></div>
+    ${shopTable(s)}
+  </section>`;
+  return layout(s, { body, path: '/' });
+}
+
+function shopTable(s) {
+  const rows = [['住所', s.address], ['営業時間', s.hours], ['定休日', s.holidays], ['電話', s.phone], ['LINE', s.lineId]].filter(([, v]) => v);
+  return rows.length ? `<dl class="shop-table">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v).replace(/\n/g, '<br>')}</dd></div>`).join('')}</dl>` : '<p class="empty">店舗情報は準備中です。</p>';
+}
+
+function stock(s, query) {
+  const q = String(query.q || '').slice(0, 50);
+  const category = s.categories.includes(query.category) ? query.category : '';
+  const showSold = query.sold !== '0';
+  const sort = ['new', 'price_asc', 'price_desc', 'name'].includes(query.sort) ? query.sort : 'new';
+  const list = items.listPublic({ category, q, sort, status: showSold ? '' : 'available' });
+  const counts = items.countsPublic();
+  const total = counts.filter((c) => c.category !== '__sold').reduce((a, c) => a + c.n, 0);
+  const qs = (patch) => {
+    const p = new URLSearchParams({ ...(category && { category }), ...(q && { q }), ...(sort !== 'new' && { sort }), ...(!showSold && { sold: '0' }), ...patch });
+    for (const [k, v] of [...p]) if (v === '') p.delete(k);
+    const str = p.toString();
+    return `/stock${str ? `?${str}` : ''}`;
+  };
+  const chips = [['', `すべて ${total}`], ...s.categories.map((c) => [c, `${c} ${counts.find((x) => x.category === c)?.n || 0}`])]
+    .map(([c, label]) => `<a class="chip"${c === category ? ' aria-current="true"' : ''} href="${qs({ category: c })}">${esc(label)}</a>`).join('');
+  const available = list.filter((i) => i.status === 'available').length;
+  const body = `
+  <section class="wrap section">
+    <h1 class="page-title">在庫一覧</h1>
+    <p class="page-lead">在庫状況はリアルタイムで更新しています。<span class="updated">最終更新 <time>${updatedAt()}</time></span></p>
+    <form class="filters" action="/stock" method="get">
+      ${category ? `<input type="hidden" name="category" value="${esc(category)}">` : ''}
+      <input class="search" type="search" name="q" value="${esc(q)}" placeholder="種名・モルフ・管理番号で検索" enterkeyhint="search">
+      <select name="sort" onchange="this.form.submit()" aria-label="並び替え">
+        ${[['new', '新着順'], ['price_asc', '価格の安い順'], ['price_desc', '価格の高い順'], ['name', '種名順']].map(([v, l]) => `<option value="${v}"${v === sort ? ' selected' : ''}>${l}</option>`).join('')}
+      </select>
+      <label class="toggle"><input type="checkbox" name="sold" value="0"${showSold ? '' : ' checked'} onchange="this.form.submit()"> 販売中のみ</label>
+    </form>
+    <nav class="chips" aria-label="種類">${chips}</nav>
+    <p class="result-count">${available} 匹 販売中${list.length > available ? `／売約済み ${list.length - available} 匹` : ''}</p>
+    ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : '<p class="empty">条件に合う生体は現在ありません。</p>'}
+  </section>`;
+  return layout(s, { title: category ? `${category}の在庫` : '在庫一覧', body, path: '/stock' });
+}
+
+function detail(s, it) {
+  const sold = it.status === 'sold';
+  const rows = [['管理番号', `No.${it.no}`], ['種類', it.category], ['種名', it.species], ['モルフ', it.morph], ['性別', SEX_MARK[it.sex] || it.sex],
+    ['サイズ', it.size], ['CB/WB・産地', it.origin], ['ハッチ日・生年月日', it.birth], ['入荷日', it.arrived_at]].filter(([, v]) => v);
+  const photos = it.photos.length ? it.photos : [null];
+  const body = `
+  <section class="wrap section detail">
+    <a class="back" href="/stock">← 在庫一覧へ</a>
+    <div class="detail-grid">
+      <div class="gallery">
+        <div class="gallery-main${sold ? ' is-sold' : ''}">${photos[0] ? `<img src="${esc(photos[0])}" alt="${esc(it.species)}" id="mainPhoto">` : PLACEHOLDER}${sold ? '<span class="sold-band">売約済み</span>' : ''}</div>
+        ${photos.length > 1 ? `<div class="gallery-thumbs">${photos.map((p, i) => `<button type="button" data-src="${esc(p)}"${i === 0 ? ' aria-current="true"' : ''}><img src="${esc(p)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      </div>
+      <div class="detail-info">
+        <p class="status-tag status-${it.status}">${STATUSES[it.status]}${!sold && items.isNew(it) ? ' <span class="badge-new">NEW</span>' : ''}</p>
+        <h1>${esc(it.species)}${it.morph ? `<span>${esc(it.morph)}</span>` : ''}</h1>
+        <div class="detail-price">${sold ? '<span class="price sold">売約済み</span>' : priceHtml(it, 'price big')}</div>
+        <dl class="spec">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+        ${it.note ? `<p class="note">${esc(it.note).replace(/\n/g, '<br>')}</p>` : ''}
+        ${sold ? '<p class="sold-msg">この生体は売約済みとなりました。ほかの在庫もぜひご覧ください。</p>' : `<p class="buy-note">ご購入は店舗、またはイベント会場にてお願いいたします。</p>${contactButtons(s, it.no)}`}
+      </div>
+    </div>
+  </section>`;
+  return layout(s, { title: `${it.species}${it.morph ? ` ${it.morph}` : ''}`, description: `${it.species} ${it.morph} ${it.price_ask ? '' : it.price ? yen(it.price) : ''} — ${s.shopName}`, body, path: '/stock', image: it.photos[0] });
+}
+
+function shop(s) {
+  const body = `
+  <section class="wrap section">
+    <h1 class="page-title">店舗情報</h1>
+    ${shopTable(s)}
+    ${s.mapUrl ? `<div class="map"><iframe src="${esc(s.mapUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="地図"></iframe></div>` : ''}
+    <div class="buy"><h2>ご購入について</h2><p>ご購入は<strong>店舗、またはイベント会場</strong>にてお願いいたします。</p>${contactButtons(s)}</div>
+    ${s.eventInfo ? `<div class="event"><h2>イベント出店情報</h2><p>${esc(s.eventInfo).replace(/\n/g, '<br>')}</p></div>` : ''}
+  </section>`;
+  return layout(s, { title: '店舗情報', body, path: '/shop' });
+}
+
+function notFound(s) {
+  return layout(s, { title: 'ページが見つかりません', body: `<section class="wrap section"><h1 class="page-title">お探しの生体・ページは見つかりませんでした</h1><p>売約済みから日数が経ったか、掲載を終了した可能性があります。</p><p><a class="btn btn-primary" href="/stock">在庫一覧へ</a></p></section>` });
+}
+
+module.exports = { home, stock, detail, shop, notFound, esc };
+
+},
+'./importer': function (require, module, exports) {
+'use strict';
+// 店舗からもらうリストの読み込み。Excel（.xlsx）・CSV/TSV・ブログのような文章の
+// どれでも受け付け、在庫データの行に変換する。取り込む前に必ずプレビューで確認する。
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const ExcelJS = require('exceljs');
+const { DATA_DIR } = require('./db');
+
+const HEADER_ALIASES = {
+  no: ['管理番号', '番号', 'no', 'no.', 'id', '個体番号', '個体no', '管理no'],
+  category: ['分類', 'カテゴリ', 'カテゴリー', '種類', 'ジャンル', '区分'],
+  species: ['種名', '種', '生体名', '生体', '名前', '品名', '商品名', '和名'],
+  morph: ['モルフ', '品種', 'カラー', '血統'],
+  sex: ['性別', '雌雄', 'オスメス', 'sex'],
+  size: ['サイズ', '全長', '大きさ', '体長', 'size'],
+  origin: ['cb/wb', 'cb', 'wb', '産地', '由来', 'ブリード', '出自'],
+  birth: ['ハッチ日', '生年月日', '誕生日', 'ハッチ', '孵化日', '生まれ'],
+  arrived_at: ['入荷日', '入荷', '登録日', '入荷日付'],
+  price: ['価格', '値段', '売価', '税込価格', '金額', '販売価格', '価格(税込)', 'price'],
+  note: ['備考', 'コメント', '説明', 'メモ', '特徴'],
+  photos: ['写真', '画像', '写真url', '画像url', 'photo', 'image'],
+  status: ['状態', 'ステータス', '在庫', '在庫状況'],
+};
+
+const normKey = (s) => String(s ?? '').normalize('NFKC').toLowerCase().replace(/[\s:：]/g, '');
+const ALIAS_LOOKUP = new Map();
+for (const [field, names] of Object.entries(HEADER_ALIASES)) for (const n of names) ALIAS_LOOKUP.set(normKey(n), field);
+const fieldFor = (header) => ALIAS_LOOKUP.get(normKey(header));
+
+// ---------- 値の正規化 ----------
+const ASK_RE = /(ask|応相談|要問い?合わ?せ|お問い?合わ?せ|問い?合わ?せ|時価|price\s*on\s*request)/i;
+
+function parsePrice(v) {
+  const s = String(v ?? '').normalize('NFKC').trim();
+  if (!s) return { price: null, price_ask: false };
+  if (ASK_RE.test(s)) return { price: null, price_ask: true };
+  const man = s.match(/([\d.]+)\s*万/);
+  if (man) {
+    const rest = s.slice(man.index + man[0].length).match(/^\s*([\d,]+)/);
+    return { price: Math.round(Number(man[1]) * 10000 + (rest ? Number(rest[1].replace(/,/g, '')) : 0)), price_ask: false };
+  }
+  const num = s.replace(/[^\d.]/g, '');
+  return num ? { price: Math.round(Number(num)), price_ask: false } : { price: null, price_ask: false };
+}
+
+function normSex(v) {
+  const s = String(v ?? '').normalize('NFKC').trim();
+  if (!s) return '';
+  if (/ペア|pair|♂\s*♀|オスメス/i.test(s)) return 'ペア';
+  if (/♂|オス|雄|male|^m$/i.test(s)) return 'オス';
+  if (/♀|メス|雌|female|^f$/i.test(s)) return 'メス';
+  if (/不明|未判別|未判定|\?/.test(s)) return '不明';
+  return s;
+}
+
+function normStatus(v) {
+  const s = String(v ?? '').normalize('NFKC').trim();
+  if (!s) return undefined;
+  if (/売約|売却|sold|完売|済/i.test(s)) return 'sold';
+  if (/非公開|hidden|準備中|検疫/i.test(s)) return 'hidden';
+  return 'available';
+}
+
+function normDate(v) {
+  if (v instanceof Date && !isNaN(v)) return new Date(v.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+  if (typeof v === 'number' && v > 20000 && v < 80000) { // Excel のシリアル値
+    return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
+  }
+  const s = String(v ?? '').normalize('NFKC').trim();
+  let m = s.match(/(\d{4})\s*[\/.\-年]\s*(\d{1,2})\s*[\/.\-月]\s*(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})\s*[\/月]\s*(\d{1,2})日?$/);
+  if (m) return `${new Date().getFullYear()}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  return '';
+}
+
+// 種名から分類を推測（リストに分類列がない場合のため）。判定順に意味がある：
+// 「ヒョウモントカゲモドキ」はヤモリ、「カメレオン」「アカメカブトトカゲ」はトカゲ。
+const CATEGORY_RULES = [
+  ['ヤモリ', /トカゲモドキ|ヤモリ|ゲッコー|ゲッコ|レオパ|クレス|ガーゴイル|リーキエ|ヘルメットゲッコー|ニシアフ/],
+  ['トカゲ', /トカゲ|カメレオン|アガマ|モニター|スキンク|イグアナ|ドラゴン|フトアゴ|バシリスク|テグー|カナヘビ|ウロマスティクス|アノール/],
+  ['ヘビ', /ヘビ|スネーク|パイソン|ボア|ナミヘビ|キングスネーク|ミルクスネーク|ホグノーズ|ラットスネーク/],
+  ['カメ', /カメ|ガメ|トータス|タートル|リクガメ|ドロガメ|ハコガメ/],
+  ['両生類', /カエル|フロッグ|ガエル|イモリ|サンショウウオ|ウーパー|アホロートル|ツノガエル|ヤドクガエル/],
+];
+function guessCategory(text, categories) {
+  for (const [cat, re] of CATEGORY_RULES) if (re.test(text) && (!categories || categories.includes(cat))) return cat;
+  return '';
+}
+
+function finalizeRow(raw, categories) {
+  const row = {};
+  for (const k of ['no', 'category', 'species', 'morph', 'size', 'origin', 'note']) {
+    if (raw[k] !== undefined && raw[k] !== null) row[k] = String(raw[k]).normalize('NFKC').trim();
+  }
+  if (row.no) row.no = row.no.replace(/^(no\.?|#|№)\s*/i, '');
+  if (raw.sex !== undefined) row.sex = normSex(raw.sex);
+  if (raw.birth !== undefined) row.birth = normDate(raw.birth) || String(raw.birth).trim();
+  if (raw.arrived_at !== undefined) { const d = normDate(raw.arrived_at); if (d) row.arrived_at = d; }
+  if (raw.price !== undefined || raw.price_ask) Object.assign(row, raw.price_ask ? { price: null, price_ask: true } : parsePrice(raw.price));
+  const st = normStatus(raw.status);
+  if (st) row.status = st;
+  if (raw.photos) row.photos = (Array.isArray(raw.photos) ? raw.photos : String(raw.photos).split(/[\s,、]+/)).filter((u) => /^(https?:\/\/|\/uploads\/)/.test(u));
+  if (!row.category && row.species) row.category = guessCategory(`${row.species} ${row.morph || ''}`, categories);
+  return row;
+}
+
+function rowWarnings(row) {
+  const w = [];
+  if (!row.species) w.push('種名がありません');
+  if (row.price == null && !row.price_ask) w.push('価格がありません');
+  if (!row.no) w.push('管理番号がないため自動採番します');
+  return w;
+}
+
+// ---------- 表形式（CSV / TSV / Excel） ----------
+function parseDelimited(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0];
+  const delim = firstLine.includes('\t') ? '\t' : ',';
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c;
+    } else if (c === '"' && cell === '') q = true;
+    else if (c === delim) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => String(c).trim() !== ''));
+}
+
+function tableToRows(table, categories) {
+  // 先頭10行のうち、見出しとして認識できる列が2つ以上ある行をヘッダーとみなす
+  let headerIdx = -1, map = [];
+  for (let i = 0; i < Math.min(10, table.length); i++) {
+    const m = table[i].map(fieldFor);
+    if (m.filter(Boolean).length >= 2) { headerIdx = i; map = m; break; }
+  }
+  if (headerIdx < 0) return null;
+  const unknown = table[headerIdx].filter((h, i) => !map[i] && String(h).trim());
+  const rows = [];
+  for (const line of table.slice(headerIdx + 1)) {
+    const raw = {};
+    line.forEach((v, i) => {
+      const f = map[i];
+      if (!f || v === '' || v == null) return;
+      raw[f] = raw[f] !== undefined && f === 'note' ? `${raw[f]} ${v}` : v;
+    });
+    if (Object.keys(raw).length) rows.push({ raw, line });
+  }
+  return { rows: rows.map(({ raw }) => finalizeRow(raw, categories)), unknownHeaders: unknown, headerRowIndex: headerIdx };
+}
+
+function cellToValue(v) {
+  if (v == null) return '';
+  if (v instanceof Date) return v;
+  if (typeof v === 'object') {
+    if (v.richText) return v.richText.map((t) => t.text).join('');
+    if (v.text !== undefined) return v.hyperlink && /^https?:/.test(v.hyperlink) ? v.hyperlink : v.text;
+    if (v.result !== undefined) return cellToValue(v.result);
+    if (v.error) return '';
+  }
+  return v;
+}
+
+async function parseXlsx(buffer, categories) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const ws = wb.worksheets.find((s) => s.actualRowCount > 0);
+  if (!ws) return { rows: [], warnings: ['シートが空です'] };
+  const table = [];
+  const rowNumbers = [];
+  ws.eachRow({ includeEmpty: false }, (r, n) => {
+    const vals = [];
+    for (let c = 1; c <= ws.columnCount; c++) vals.push(cellToValue(r.getCell(c).value));
+    table.push(vals);
+    rowNumbers.push(n);
+  });
+  const parsed = tableToRows(table.map((r) => r.map((v) => (v instanceof Date ? v : String(v)))), categories);
+  if (!parsed) return { rows: [], warnings: ['見出し行（管理番号・種名・価格など）が見つかりませんでした'] };
+
+  // Excel に貼り付けられた写真を、その行の生体の写真として取り込む
+  const images = ws.getImages?.() || [];
+  if (images.length) {
+    const dataRowNumbers = rowNumbers.slice(parsed.headerRowIndex + 1);
+    for (const img of images) {
+      const media = wb.model.media?.[Number(img.imageId)] || wb.getImage(Number(img.imageId));
+      if (!media?.buffer) continue;
+      const excelRow = Math.floor(img.range.tl.nativeRow ?? img.range.tl.row) + 1;
+      const idx = dataRowNumbers.indexOf(excelRow);
+      if (idx < 0 || !parsed.rows[idx]) continue;
+      const url = saveUpload(media.buffer, media.extension || 'jpg');
+      (parsed.rows[idx].photos ||= []).push(url);
+    }
+  }
+  return { rows: parsed.rows, warnings: parsed.unknownHeaders.length ? [`読み込まなかった列：${parsed.unknownHeaders.join('、')}`] : [] };
+}
+
+// ---------- 文章（ブログ・SNS 投稿の貼り付け） ----------
+const SEP_LINE = /^\s*([-=＝ー─━_*＊~〜・■□◆◇●○★☆]\s*){3,}\s*$/;
+const KV_LINE = /^\s*[【\[]?([^:：】\]]{1,10})[】\]]?\s*[:：]\s*(.+)$/;
+
+function parseLine(line, categories) {
+  let s = line.normalize('NFKC').replace(/^[\s・●○◆◇■□★☆▼▶►\-*]+/, '').trim();
+  const raw = {};
+  const take = (re, fn) => { const m = s.match(re); if (m) { fn(m); s = (s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length)).trim(); } return !!m; };
+
+  take(/(?:管理番号|管理no\.?|no\.?|№|#)\s*([a-z]{0,3}-?\d+)/i, (m) => { raw.no = m[1]; })
+    || take(/^[\[【(（]?(\d{1,6})[\]】)）.、:]\s*/, (m) => { raw.no = m[1]; });
+  if (!take(new RegExp(`(?:価格|値段|売価)?\\s*[:]?\\s*${ASK_RE.source}`, 'i'), () => { raw.price_ask = true; })) {
+    take(/(?:価格|値段|売価)?\s*[:]?\s*(?:[¥￥]\s*([\d,]+)|([\d.]+\s*万\s*(?:[\d,]+)?|[\d,]+)\s*円)\s*(?:[(（]?\s*税込\s*[)）]?)?/, (m) => { raw.price = m[1] || m[2]; });
+  }
+  take(/(♂\s*♀|ペア|♂|♀|オス|メス|雄|雌|性別不明|不明)/, (m) => { raw.sex = m[1]; });
+  take(/(\d{4}\s*[\/.年-]\s*\d{1,2}\s*月?(?:\s*[\/.-]?\s*\d{1,2}\s*日?)?)\s*(?:ハッチ|生まれ|生|孵化|産)/, (m) => { raw.birth = m[1]; })
+    || take(/(?:ハッチ|生まれ)\s*[:]?\s*(\d{4}\s*[\/.年-]\s*\d{1,2}\s*月?(?:\s*[\/.-]?\s*\d{1,2}\s*日?)?)/, (m) => { raw.birth = m[1]; });
+  take(/((?:全長|体長|サイズ)\s*[:]?\s*)?(約?\s*\d+(?:\.\d+)?\s*(?:cm|mm|g)(?:\s*(?:前後|程度|くらい|位|ほど))?|ベビー〜ヤング|ヤング〜アダルト|ベビー|ヤング|サブアダルト|アダルト|ハッチリング)/i, (m) => { raw.size = m[2]; });
+  take(/(国内CB|海外CB|CB|WB|FH|CH|LTC)(?![a-z])/i, (m) => { raw.origin = m[1].toUpperCase().replace('国内CB', '国内CB'); });
+
+  s = s.replace(/[\/|｜,、]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const paren = s.match(/^(.+?)\s*[(（「]([^)）」]+)[)）」]\s*(.*)$/);
+  if (paren) { raw.species = paren[1].trim(); raw.morph = [paren[2], paren[3]].filter(Boolean).join(' ').trim(); }
+  else {
+    const [first, ...rest] = s.split(' ');
+    raw.species = first || '';
+    raw.morph = rest.join(' ');
+  }
+  return finalizeRow(raw, categories);
+}
+
+function parseText(text, categories) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const blocks = [];
+  let cur = [];
+  for (const l of lines) {
+    if (!l.trim() || SEP_LINE.test(l)) { if (cur.length) blocks.push(cur); cur = []; } else cur.push(l);
+  }
+  if (cur.length) blocks.push(cur);
+
+  const rows = [];
+  const skipped = [];
+  for (const block of blocks) {
+    const kv = block.map((l) => l.normalize('NFKC').match(KV_LINE)).map((m) => m && fieldFor(m[1]) ? [fieldFor(m[1]), m[2].trim()] : null);
+    if (kv.filter(Boolean).length >= 2) {
+      // 「種名：〇〇」「価格：〇〇円」のような項目形式のまとまり
+      const raw = {};
+      const extra = [];
+      block.forEach((l, i) => { if (kv[i]) raw[kv[i][0]] = kv[i][1]; else extra.push(l.trim()); });
+      if (!raw.species && extra.length) { const p = parseLine(extra.shift(), categories); Object.assign(raw, { ...p, ...raw }); }
+      if (extra.length) raw.note = [raw.note, ...extra].filter(Boolean).join(' ');
+      rows.push(finalizeRow(raw, categories));
+      continue;
+    }
+    // 1行1個体の形式
+    for (const l of block) {
+      const r = parseLine(l, categories);
+      const looksLikeItem = r.species && (r.price != null || r.price_ask || r.no || r.sex);
+      if (looksLikeItem) rows.push(r); else skipped.push(l.trim());
+    }
+  }
+  return { rows, warnings: skipped.length ? [`生体として読み取れなかった行（${skipped.length}行）：${skipped.slice(0, 5).join(' / ')}${skipped.length > 5 ? ' …' : ''}`] : [] };
+}
+
+function decodeText(buffer) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer).replace(/^﻿/, ''); }
+  catch { return new TextDecoder('shift_jis').decode(buffer); } // 日本語版 Excel の CSV は Shift_JIS
+}
+
+async function parseAny({ buffer, filename = '', text, categories }) {
+  let result;
+  if (buffer && /\.xlsx$/i.test(filename)) result = await parseXlsx(buffer, categories);
+  else {
+    const src = text ?? decodeText(buffer);
+    const table = /\.(csv|tsv)$/i.test(filename) || /^[^\n]*[,\t][^\n]*\n/.test(src) ? tableToRows(parseDelimited(src), categories) : null;
+    result = table ? { rows: table.rows, warnings: table.unknownHeaders.length ? [`読み込まなかった列：${table.unknownHeaders.join('、')}`] : [] } : parseText(src, categories);
+  }
+  result.rows = result.rows.map((r) => ({ ...r, _warnings: rowWarnings(r) }));
+  return result;
+}
+
+function saveUpload(buffer, ext = 'jpg') {
+  const safeExt = /^(jpe?g|png|webp|gif)$/i.test(ext) ? ext.toLowerCase().replace('jpeg', 'jpg') : 'jpg';
+  const name = `${crypto.createHash('sha1').update(buffer).digest('hex').slice(0, 20)}.${safeExt}`;
+  const file = path.join(DATA_DIR, 'uploads', name);
+  if (!fs.existsSync(file)) fs.writeFileSync(file, buffer);
+  return `/uploads/${name}`;
+}
+
+module.exports = { parseAny, parseText, parseLine, parseDelimited, parsePrice, normSex, normDate, guessCategory, saveUpload, HEADER_ALIASES };
+
+}
+};</script>
+<script>function startStaff(env) {
+  const { document, fetch, EventSource, localStorage, confirm, prompt } = env;
+// エキゾチックサプライ スタッフ用在庫アプリ
+// 基本操作は「管理番号を打つ → 売約済みにする」の2アクション。押し間違いはトーストの「取り消す」で戻せる。
+(() => {
+  'use strict';
+  const $app = document.getElementById('app');
+  const $toast = document.getElementById('toast');
+  const STATUS = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+  const SEX = ['', 'オス', 'メス', 'ペア', '不明'];
+  const SEX_MARK = { オス: '♂', メス: '♀', ペア: '♂♀', 不明: '性別不明' };
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const yen = (it) => (it.price_ask ? 'ASK' : it.price == null ? '価格未設定' : `¥${Number(it.price).toLocaleString('ja-JP')}`);
+  const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M14 40c6-10 16-14 26-12 6 1 10 5 12 9-4-2-8-2-11 0 3 1 5 3 6 6-6-3-13-3-19 0-5 2-10 2-14-3z" fill="#2f5a43" opacity=".35"/></svg>');
+
+  const state = { me: null, categories: [], tab: 'sell', items: new Map(), stats: null, listFilter: 'available', listQuery: '' };
+  const isOwner = () => state.me?.role === 'owner';
+
+  // ---------- 通信 ----------
+  async function api(path, { method = 'GET', body, form } = {}) {
+    let res;
+    try {
+      res = await fetch(`/api${path}`, {
+        method,
+        headers: { 'X-Requested-With': 'es-staff', ...(body && { 'Content-Type': 'application/json' }) },
+        body: form || (body && JSON.stringify(body)),
+        credentials: 'same-origin',
+      });
+    } catch {
+      throw Object.assign(new Error('通信できません。電波の状況を確認してください'), { network: true });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && path !== '/login') { state.me = null; renderLogin(); }
+    if (!res.ok) throw Object.assign(new Error(data.error || '通信に失敗しました'), { status: res.status });
+    return data;
+  }
+  const remember = (it) => { state.items.set(it.no, it); return it; };
+
+  // ---------- 端末内の在庫コピー ----------
+  // 全在庫を端末に持っておき、検索は通信せずにその場で行う（入力した瞬間に候補が出る・電波がなくても探せる）
+  const store = {
+    get(k, fallback) { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 容量不足などは無視 */ } },
+  };
+  const saveLocal = () => store.set('es-items', [...state.items.values()]);
+  async function syncAll() {
+    try {
+      const { items } = await api('/items?limit=10000');
+      state.items = new Map(items.map((i) => [i.no, i]));
+      // 送信待ちの変更は、サーバーの値より端末の操作を優先して表示する
+      for (const job of loadQueue()) { const it = state.items.get(job.no); if (it) it.status = job.status; }
+      saveLocal();
+      return true;
+    } catch { return false; }
+  }
+  function searchLocal(q, { status = '', limit = 300 } = {}) {
+    const key = q.trim().normalize('NFKC').toLowerCase();
+    const scored = [];
+    for (const it of state.items.values()) {
+      if (status && it.status !== status) continue;
+      let score = 3;
+      if (key) {
+        const no = String(it.no).toLowerCase();
+        if (no === key) score = 0;
+        else if (no.startsWith(key)) score = 1;
+        else if (`${it.species} ${it.morph}`.normalize('NFKC').toLowerCase().includes(key)) score = 2;
+        else continue;
+      }
+      scored.push([score, it]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || (a[0] === 1 ? a[1].no.length - b[1].no.length : 0) || String(b[1].updated_at).localeCompare(String(a[1].updated_at)));
+    return scored.slice(0, limit).map(([, it]) => it);
+  }
+  const utcNow = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+  // ---------- 送信待ち（電波がないときの操作） ----------
+  const loadQueue = () => store.get('es-queue', []);
+  function saveQueue(q) {
+    store.set('es-queue', q);
+    const el = document.getElementById('pending');
+    if (el) { el.hidden = !q.length; el.textContent = `送信待ち ${q.length}件 ・ 電波が戻ると自動で送信します`; }
+  }
+  function enqueue(no, status) {
+    const q = loadQueue().filter((j) => j.no !== no); // 同じ番号は最後の操作だけ送ればよい
+    q.push({ no, status });
+    saveQueue(q);
+  }
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing || !loadQueue().length) return;
+    flushing = true;
+    try {
+      for (const job of loadQueue()) {
+        try {
+          const { item } = await api(`/items/${encodeURIComponent(job.no)}/status`, { method: 'POST', body: { status: job.status } });
+          remember(item);
+          refreshItem(job.no);
+        } catch (e) {
+          if (e.network) break; // まだ圏外。次の機会に再送
+          toast(`No.${job.no} を送信できませんでした：${e.message}`, { error: true });
+        }
+        saveQueue(loadQueue().filter((j) => !(j.no === job.no && j.status === job.status)));
+      }
+      if (!loadQueue().length) toast('送信待ちの操作をすべて送信しました');
+    } finally {
+      flushing = false;
+      saveLocal();
+      loadStats();
+    }
+  }
+
+  // ---------- トースト ----------
+  let toastTimer;
+  function toast(msg, { undo, error } = {}) {
+    clearTimeout(toastTimer);
+    $toast.className = `toast${error ? ' error' : ''}`;
+    $toast.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button type="button">取り消す</button>' : ''}`;
+    $toast.hidden = false;
+    if (undo) $toast.querySelector('button').onclick = () => { $toast.hidden = true; undo(); };
+    toastTimer = setTimeout(() => { $toast.hidden = true; }, undo ? 8000 : 3000);
+  }
+
+  // ---------- ステータス変更（楽観的更新） ----------
+  async function changeStatus(no, status, { silent } = {}) {
+    const it = state.items.get(no);
+    const prev = it?.status;
+    const prevSoldAt = it?.sold_at;
+    if (it) { it.status = status; if (status === 'sold') it.sold_at = utcNow(); refreshItem(no); }
+    const undo = () => changeStatus(no, prev, { silent: true }).then(() => toast(`No.${no} を元に戻しました`));
+    const done = () => {
+      saveLocal();
+      loadStats();
+      if (state.tab === 'sell' && status === 'sold') {
+        const input = document.getElementById('noInput');
+        if (input) { input.value = ''; input.focus(); }
+      }
+    };
+    try {
+      const { item } = await api(`/items/${encodeURIComponent(no)}/status`, { method: 'POST', body: { status } });
+      remember(item);
+      refreshItem(no);
+      if (!silent) toast(`No.${no} を「${STATUS[status]}」にしました`, { undo });
+      done();
+    } catch (e) {
+      if (e.network) {
+        enqueue(no, status);
+        if (!silent) toast(`圏外のため保存しました（No.${no}）。電波が戻ると自動で送信します`, { undo });
+        return done();
+      }
+      if (it) { it.status = prev; it.sold_at = prevSoldAt; refreshItem(no); }
+      toast(e.message, { error: true });
+    }
+  }
+
+  // ---------- 生体カード ----------
+  function itemCard(it, { actions = true } = {}) {
+    const sub = [it.morph, SEX_MARK[it.sex] || it.sex, it.size].filter(Boolean).join(' / ');
+    let btns = '';
+    if (actions) {
+      btns = it.status === 'available'
+        ? `<button class="act sell" data-act="sold" data-no="${esc(it.no)}">売約済みにする</button><button class="act sub" data-act="hidden" data-no="${esc(it.no)}">非公開</button>`
+        : `<button class="act back" data-act="available" data-no="${esc(it.no)}">販売中に戻す</button>${it.status === 'sold' ? `<button class="act sub" data-act="hidden" data-no="${esc(it.no)}">非公開</button>` : ''}`;
+    }
+    return `<div class="item" id="item-${esc(it.no)}" data-open="${esc(it.no)}">
+      <img class="ph" src="${esc(it.photos[0] || PH)}" alt="" loading="lazy">
+      <div class="item-main">
+        <div class="item-head"><span class="item-no">No.${esc(it.no)}</span><span class="pill ${it.status}">${STATUS[it.status]}</span></div>
+        <div class="item-name">${esc(it.species)}</div>
+        <div class="item-sub">${esc(sub)}${sub ? ' ・ ' : ''}${esc(yen(it))}</div>
+      </div>
+      ${btns ? `<div class="item-actions">${btns}</div>` : ''}
+    </div>`;
+  }
+  function refreshItem(no) {
+    const el = document.getElementById(`item-${no}`);
+    const it = state.items.get(no);
+    if (!el || !it) return;
+    // 「販売中のみ」などの絞り込み表示中なら、条件外になった行は消さずに残しておく（取り消しやすいように）
+    el.outerHTML = itemCard(it);
+  }
+
+  // ---------- 画面の枠 ----------
+  const ICONS = {
+    sell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m15 16 2 2 4-4"/></svg>',
+    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+    import: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  };
+  function shell(content) {
+    const tabs = [['sell', '売約登録'], ['list', '在庫'], ...(isOwner() ? [['import', '取り込み']] : []), ['more', 'その他']];
+    const s = state.stats;
+    $app.innerHTML = `
+      <header class="top">
+        <div class="top-row"><h1>ES在庫</h1><span class="who">${esc(state.me.name)}（${isOwner() ? '店主' : 'スタッフ'}）</span></div>
+        <div class="stats">
+          <div class="stat"><b id="stAvail">${s ? s.available : '–'}</b><span>販売中</span></div>
+          <div class="stat"><b id="stSold">${s ? s.soldToday : '–'}</b><span>本日の売約</span></div>
+          <div class="stat"><b id="stHidden">${s ? s.hidden : '–'}</b><span>非公開</span></div>
+        </div>
+      </header>
+      <main id="main">${content}</main>
+      <nav class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}"${state.tab === k ? ' aria-current="page"' : ''}>${ICONS[k]}<span>${l}</span></button>`).join('')}</nav>`;
+  }
+  function loadStats() {
+    const jstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const since = new Date(`${jstToday}T00:00:00+09:00`).toISOString().replace('T', ' ').slice(0, 19);
+    const s = { available: 0, hidden: 0, soldToday: 0 };
+    for (const it of state.items.values()) {
+      if (it.status === 'available') s.available++;
+      else if (it.status === 'hidden') s.hidden++;
+      else if (it.status === 'sold' && it.sold_at >= since) s.soldToday++;
+    }
+    state.stats = s;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('stAvail', s.available); set('stSold', s.soldToday); set('stHidden', s.hidden);
+  }
+
+  function go(tab) {
+    state.tab = tab;
+    ({ sell: renderSell, list: renderList, import: renderImport, more: renderMore })[tab]();
+  }
+
+  // ---------- 売約登録（メイン） ----------
+  function renderSell() {
+    shell(`
+      <div class="no-input">
+        <input id="noInput" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="search" placeholder="管理番号" aria-label="管理番号">
+        <button class="clear" type="button" id="clearNo" aria-label="消す">×</button>
+      </div>
+      <p class="hint">管理番号を入力すると候補が出ます。種名でも探せます。</p>
+      <div class="list" id="results"></div>`);
+    const input = document.getElementById('noInput');
+    const results = document.getElementById('results');
+    const search = () => {
+      const q = input.value.trim().normalize('NFKC');
+      if (!q) { results.innerHTML = ''; return; }
+      const items = searchLocal(q, { limit: 20 });
+      results.innerHTML = items.length ? items.map((i) => itemCard(i)).join('')
+        : `<p class="empty">「${esc(q)}」に一致する在庫がありません${state.items.size ? '' : '<br>（在庫データを読み込めていません。電波の良い場所で開き直してください）'}</p>`;
+    };
+    input.addEventListener('input', search);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { search(); input.blur(); } });
+    document.getElementById('clearNo').onclick = () => { input.value = ''; results.innerHTML = ''; input.focus(); };
+    input.focus();
+    loadStats();
+  }
+
+  // ---------- 在庫一覧 ----------
+  async function renderList() {
+    const f = state.listFilter;
+    shell(`
+      <input class="search" id="listQ" type="search" placeholder="管理番号・種名で検索" value="${esc(state.listQuery)}">
+      <div class="seg">${[['available', '販売中'], ['sold', '売約済み'], ['hidden', '非公開'], ['', 'すべて']].map(([k, l]) => `<button data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join('')}</div>
+      ${isOwner() ? '<button class="btn" id="newItem" style="margin-bottom:12px">＋ 生体を新規登録</button>' : ''}
+      <div class="list" id="listBox"><p class="empty">読み込み中…</p></div>`);
+    const q = document.getElementById('listQ');
+    let t;
+    q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { state.listQuery = q.value.trim(); loadList(); }, 100); });
+    document.getElementById('newItem')?.addEventListener('click', () => openEditor(null));
+    loadList();
+    loadStats();
+  }
+  function loadList() {
+    const box = document.getElementById('listBox');
+    if (!box) return;
+    const items = searchLocal(state.listQuery, { status: state.listFilter, limit: 300 });
+    box.innerHTML = items.length ? items.map((i) => itemCard(i)).join('') : '<p class="empty">該当する在庫はありません</p>';
+  }
+  // 在庫データが入れ替わったとき、今の画面の表示だけを更新する
+  function rerenderData() {
+    loadStats();
+    if (state.tab === 'list') loadList();
+    if (state.tab === 'sell') document.getElementById('noInput')?.dispatchEvent(new Event('input'));
+  }
+
+  // ---------- 生体の詳細・編集シート ----------
+  function closeSheet() { document.querySelector('.sheet-back')?.remove(); }
+  function sheet(title, inner) {
+    closeSheet();
+    const back = document.createElement('div');
+    back.className = 'sheet-back';
+    back.innerHTML = `<div class="sheet" role="dialog" aria-label="${esc(title)}"><div class="sheet-grip"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="x" data-close aria-label="閉じる">×</button></div>${inner}</div>`;
+    back.addEventListener('click', (e) => { if (e.target === back || e.target.closest('[data-close]')) closeSheet(); });
+    document.body.appendChild(back);
+    return back.querySelector('.sheet');
+  }
+
+  async function openEditor(no) {
+    let it = no ? state.items.get(no) : null;
+    if (no) {
+      try { it = remember((await api(`/items/${encodeURIComponent(no)}`)).item); saveLocal(); }
+      catch (e) { if (!it || !e.network) return toast(e.message, { error: true }); } // 圏外なら端末内の情報で表示
+    }
+    if (!isOwner()) {
+      const rows = [['種類', it.category], ['モルフ', it.morph], ['性別', it.sex], ['サイズ', it.size], ['CB/WB', it.origin], ['ハッチ日', it.birth], ['入荷日', it.arrived_at], ['価格', yen(it)], ['備考', it.note]].filter(([, v]) => v);
+      const el = sheet(`No.${it.no} ${it.species}`, `
+        ${it.photos[0] ? `<img src="${esc(it.photos[0])}" alt="" style="border-radius:12px;margin-bottom:12px;width:100%;aspect-ratio:1;object-fit:cover">` : ''}
+        <div class="card">${rows.map(([k, v]) => `<div class="field"><span>${k}</span>${esc(v)}</div>`).join('')}
+        <p class="locked">※ 価格・生体情報の変更は店主のみ可能です</p></div>
+        <div class="list">${itemCard(it).replace(/id="item-[^"]*"/, '')}</div>`);
+      el.addEventListener('click', (e) => { if (e.target.closest('[data-act]')) closeSheet(); });
+      return;
+    }
+    const nextNo = it ? it.no : (await api('/next-no').catch(() => ({ no: '' }))).no;
+    const v = it || { no: nextNo, category: '', species: '', morph: '', sex: '', size: '', origin: '', birth: '', arrived_at: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), price: '', price_ask: false, status: 'available', note: '', photos: [] };
+    const photos = [...v.photos];
+    const cats = [...new Set([...state.categories, v.category].filter(Boolean))];
+    const el = sheet(it ? `No.${it.no} を編集` : '生体を新規登録', `
+      <form id="edit" autocomplete="off">
+        <div class="card">
+          <div class="row2">
+            <label class="field"><span>管理番号</span><input name="no" value="${esc(v.no)}" inputmode="numeric" required></label>
+            <label class="field"><span>ステータス</span><select name="status">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}"${k === v.status ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+          </div>
+          <label class="field"><span>種名 *</span><input name="species" value="${esc(v.species)}" required></label>
+          <label class="field"><span>モルフ</span><input name="morph" value="${esc(v.morph)}"></label>
+          <div class="row2">
+            <label class="field"><span>種類</span><select name="category"><option value="">—</option>${cats.map((c) => `<option${c === v.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+            <label class="field"><span>性別</span><select name="sex">${[...new Set([...SEX, v.sex])].map((s) => `<option value="${esc(s)}"${s === v.sex ? ' selected' : ''}>${s || '—'}</option>`).join('')}</select></label>
+          </div>
+          <div class="row2">
+            <label class="field"><span>サイズ</span><input name="size" value="${esc(v.size)}" placeholder="ベビー / 15cm"></label>
+            <label class="field"><span>CB/WB・産地</span><input name="origin" value="${esc(v.origin)}"></label>
+          </div>
+          <div class="row2">
+            <label class="field"><span>ハッチ日</span><input name="birth" value="${esc(v.birth)}" placeholder="2026-06-01"></label>
+            <label class="field"><span>入荷日</span><input name="arrived_at" type="date" value="${esc(v.arrived_at)}"></label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>価格</h2>
+          <label class="field"><span>税込価格（円）</span><input name="price" type="number" inputmode="numeric" min="0" step="1" value="${v.price ?? ''}"></label>
+          <label class="check"><input type="checkbox" name="price_ask"${v.price_ask ? ' checked' : ''}> 価格を公開しない（ASK表示）</label>
+        </div>
+        <div class="card">
+          <h2>写真</h2>
+          <div class="photos" id="photos"></div>
+          <p class="note">${it ? '1枚目がサイトの一覧に表示されます。' : '写真は登録後に追加できます。'}</p>
+        </div>
+        <div class="card"><label class="field"><span>備考（サイトに表示されます）</span><textarea name="note">${esc(v.note)}</textarea></label></div>
+        <p class="err" id="editErr"></p>
+        <button class="btn" type="submit">${it ? '保存する' : '登録する'}</button>
+        ${it ? '<button class="btn danger" type="button" id="del">この生体を削除</button>' : ''}
+      </form>`);
+    const box = el.querySelector('#photos');
+    const drawPhotos = () => {
+      box.innerHTML = photos.map((p, i) => `<div class="ph"><img src="${esc(p)}" alt=""><button type="button" data-rm="${i}" aria-label="削除">×</button></div>`).join('')
+        + (it ? '<label class="add">＋<br>写真<input type="file" accept="image/*" hidden id="photoIn"></label>' : '');
+      box.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { photos.splice(Number(b.dataset.rm), 1); drawPhotos(); }; });
+      box.querySelector('#photoIn')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          toast('写真をアップロード中…');
+          const form = new FormData();
+          form.append('photo', await shrink(file), 'photo.jpg');
+          const { item } = await api(`/items/${encodeURIComponent(it.no)}/photos`, { method: 'POST', form });
+          remember(item);
+          photos.splice(0, photos.length, ...item.photos);
+          drawPhotos();
+          toast('写真を追加しました');
+        } catch (err) { toast(err.message, { error: true }); }
+      });
+    };
+    drawPhotos();
+    el.querySelector('#edit').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd);
+      body.price_ask = fd.has('price_ask');
+      body.photos = photos;
+      try {
+        const { item } = it ? await api(`/items/${encodeURIComponent(it.no)}`, { method: 'PATCH', body }) : await api('/items', { method: 'POST', body });
+        remember(item);
+        saveLocal();
+        closeSheet();
+        toast(it ? `No.${item.no} を保存しました` : `No.${item.no} を登録しました`);
+        if (state.tab === 'list') loadList();
+        loadStats();
+      } catch (err) { el.querySelector('#editErr').textContent = err.message; }
+    });
+    el.querySelector('#del')?.addEventListener('click', async () => {
+      if (!confirm(`No.${it.no}（${it.species}）を削除します。元に戻せません。よろしいですか？\n※売れた場合は削除せず「売約済み」にしてください。`)) return;
+      try { await api(`/items/${encodeURIComponent(it.no)}`, { method: 'DELETE' }); state.items.delete(it.no); saveLocal(); closeSheet(); toast('削除しました'); loadList(); loadStats(); }
+      catch (err) { toast(err.message, { error: true }); }
+    });
+  }
+
+  // スマホの写真は大きいので、送る前に縮小して通信量と待ち時間を減らす
+  async function shrink(file, max = 1600) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      return await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
+    } catch { return file; }
+  }
+
+  // ---------- 取り込み（店主） ----------
+  let preview = null;
+  function renderImport() {
+    shell(`
+      <div class="card">
+        <h2>リストの取り込み</h2>
+        <p class="note">Excel（.xlsx）・CSV・テキストファイル、またはブログの文章をそのまま貼り付けて読み込めます。取り込む前に内容を確認できます。管理番号が同じ生体は上書きされます。</p>
+        <label class="field"><span>ファイルを選ぶ</span><input type="file" id="impFile" accept=".xlsx,.csv,.tsv,.txt,text/plain,text/csv"></label>
+        <label class="field"><span>または文章を貼り付け</span><textarea id="impText" placeholder="No.101 ヒョウモントカゲモドキ ハイポタンジェリン ♂ ベビー 12,800円"></textarea></label>
+        <p class="err" id="impErr"></p>
+        <button class="btn" id="impPreview">読み込んで確認する</button>
+      </div>
+      <div id="impResult"></div>`);
+    document.getElementById('impPreview').onclick = async () => {
+      const file = document.getElementById('impFile').files[0];
+      const text = document.getElementById('impText').value;
+      const form = new FormData();
+      if (file) form.append('file', file); else form.append('text', text);
+      const err = document.getElementById('impErr');
+      err.textContent = '';
+      try { preview = await api('/import/preview', { method: 'POST', form }); drawPreview(); }
+      catch (e) { err.textContent = e.message; }
+    };
+  }
+  function drawPreview() {
+    const box = document.getElementById('impResult');
+    const rows = preview.rows;
+    const nNew = rows.filter((r) => !r._exists).length;
+    box.innerHTML = `
+      <div class="card">
+        <h2>${rows.length}件を読み取りました（新規 ${nNew}・上書き ${rows.length - nNew}）</h2>
+        ${preview.warnings.map((w) => `<p class="note">⚠ ${esc(w)}</p>`).join('')}
+        <label class="field"><span>新規の生体の公開状態</span><select id="impStatus"><option value="available">すぐ公開（販売中）</option><option value="hidden">非公開で取り込む（あとで確認して公開）</option></select></label>
+      </div>
+      <div class="prev">${rows.map((r, i) => `
+        <label class="prev-row"><input type="checkbox" data-i="${i}" checked>
+          <div><span class="tag ${r._exists ? 'upd' : 'new'}">${r._exists ? '上書き' : '新規'}</span><b>${r.no ? `No.${esc(r.no)}` : '番号自動'}</b> ${esc(r.species || '（種名なし）')} ${esc(r.morph || '')}<br>
+          <small>${esc([r.category, r.sex, r.size, r.origin, r.birth && `ハッチ ${r.birth}`].filter(Boolean).join(' / '))} ・ <b>${r.price_ask ? 'ASK' : r.price != null ? `¥${Number(r.price).toLocaleString()}` : '価格なし'}</b>${r.status ? ` ・ ${STATUS[r.status]}` : ''}${r.photos?.length ? ` ・ 写真${r.photos.length}枚` : ''}</small>
+          ${r._warnings.length ? `<div class="w">⚠ ${esc(r._warnings.join('／'))}</div>` : ''}</div>
+        </label>`).join('')}</div>
+      <p class="err" id="commitErr"></p>
+      <button class="btn" id="impCommit" style="margin-top:12px">チェックした行を取り込む</button>`;
+    document.getElementById('impCommit').onclick = async () => {
+      const chosen = [...box.querySelectorAll('input[data-i]:checked')].map((c) => rows[Number(c.dataset.i)]).filter((r) => r.species);
+      if (!chosen.length) return (document.getElementById('commitErr').textContent = '取り込む行を選んでください（種名のない行は取り込めません）');
+      try {
+        const r = await api('/import/commit', { method: 'POST', body: { rows: chosen, newStatus: document.getElementById('impStatus').value } });
+        preview = null;
+        box.innerHTML = `<div class="card"><h2>取り込みが完了しました</h2><p>新規 ${r.created}件・上書き ${r.updated}件${r.errors.length ? `・エラー ${r.errors.length}件` : ''}</p>${r.errors.map((e) => `<p class="note">⚠ ${esc(e.no ? `No.${e.no}` : `${e.row}行目`)}：${esc(e.message)}</p>`).join('')}</div>`;
+        document.getElementById('impText').value = '';
+        await syncAll();
+        document.getElementById('impFile').value = '';
+        loadStats();
+      } catch (e) { document.getElementById('commitErr').textContent = e.message; }
+    };
+  }
+
+  // ---------- その他 ----------
+  function renderMore() {
+    shell(`
+      <div class="menu">
+        ${isOwner() ? '<button data-more="users">スタッフ管理</button><button data-more="settings">店舗情報・サイト設定</button><button data-more="logs">変更履歴</button>' : ''}
+        <button data-more="install">アプリをホーム画面に追加する方法</button>
+        <button data-more="site">公開サイトを見る</button>
+        <button data-more="logout">ログアウト</button>
+      </div>`);
+  }
+  const moreActions = {
+    site: () => env.openSite(),
+    logout: async () => {
+      const pending = loadQueue().length;
+      if (!confirm(pending ? `まだ送信されていない操作が${pending}件あります。ログアウトすると失われます。ログアウトしますか？` : 'ログアウトしますか？')) return;
+      await api('/logout', { method: 'POST' }).catch(() => {});
+      ['es-me', 'es-items', 'es-queue'].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      state.me = null; state.items = new Map(); renderLogin();
+    },
+    install: () => sheet('ホーム画面に追加', `<div class="card">
+      <h2>iPhone（Safari）</h2><p>画面下の共有ボタン（□に↑）→「ホーム画面に追加」→「追加」。</p>
+      <h2>Android（Chrome）</h2><p>右上の︙ →「アプリをインストール」または「ホーム画面に追加」。</p>
+      <p class="note">追加後はホーム画面の「ES在庫」アイコンから開けます。ログインは一度だけで、しばらくは自動でログインされた状態になります。</p></div>`),
+    logs: async () => {
+      const el = sheet('変更履歴（最新200件）', '<p class="empty">読み込み中…</p>');
+      const { logs } = await api('/logs');
+      const label = (l) => {
+        if (l.action === 'status') return `${STATUS[l.detail.from]} → <b>${STATUS[l.detail.to]}</b>`;
+        if (l.action === 'price') return `価格変更 ${esc(fmtChange(l.detail.price, l.detail.price_ask))}`;
+        return { create: '新規登録', edit: '情報を編集', delete: '削除' }[l.action] || esc(l.action);
+      };
+      el.querySelector('.empty').outerHTML = logs.map((l) => `<div class="log"><time>${esc(fmtTime(l.at))}</time><b>${esc(l.user_name)}</b>：No.${esc(l.item_no)} ${label(l)}</div>`).join('') || '<p class="empty">履歴はまだありません</p>';
+    },
+    users: async () => {
+      const el = sheet('スタッフ管理', '<div id="users"><p class="empty">読み込み中…</p></div>');
+      const draw = async () => {
+        const { users, limits } = await api('/users');
+        const act = (r) => users.filter((u) => u.role === r && u.active).length;
+        el.querySelector('#users').innerHTML = `
+          <div class="card"><p class="note">店主（価格の変更ができる人）：${act('owner')} / ${limits.owner}名　スタッフ：${act('staff')} / ${limits.staff}名</p>
+          ${users.map((u) => `<div class="user-row"><div><b>${esc(u.name)}</b> <small>ID: ${esc(u.login)}・${u.role === 'owner' ? '店主' : 'スタッフ'}${u.active ? '' : '・停止中'}</small></div>
+            <div style="display:flex;gap:6px"><button class="act sub" data-pw="${u.id}">PW変更</button><button class="act sub" data-toggle="${u.id}" data-active="${u.active}">${u.active ? '停止' : '再開'}</button></div></div>`).join('')}</div>
+          <form class="card" id="addUser" autocomplete="off"><h2>アカウントを追加</h2>
+            <div class="row2"><label class="field"><span>表示名</span><input name="name" required placeholder="山田"></label>
+            <label class="field"><span>権限</span><select name="role"><option value="staff">スタッフ</option><option value="owner">店主（価格変更可）</option></select></label></div>
+            <div class="row2"><label class="field"><span>ログインID（半角英数）</span><input name="login" required autocapitalize="off" placeholder="yamada"></label>
+            <label class="field"><span>パスワード（6文字以上）</span><input name="password" required minlength="6"></label></div>
+            <p class="err" id="uErr"></p><button class="btn">追加する</button></form>`;
+        el.querySelector('#addUser').onsubmit = async (e) => {
+          e.preventDefault();
+          try { await api('/users', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); toast('アカウントを追加しました'); draw(); }
+          catch (err) { el.querySelector('#uErr').textContent = err.message; }
+        };
+        el.querySelectorAll('[data-toggle]').forEach((b) => { b.onclick = async () => {
+          try { await api(`/users/${b.dataset.toggle}`, { method: 'PATCH', body: { active: b.dataset.active !== '1' } }); draw(); } catch (err) { toast(err.message, { error: true }); }
+        }; });
+        el.querySelectorAll('[data-pw]').forEach((b) => { b.onclick = async () => {
+          const pw = prompt('新しいパスワード（6文字以上）');
+          if (!pw) return;
+          try { await api(`/users/${b.dataset.pw}`, { method: 'PATCH', body: { password: pw } }); toast('パスワードを変更しました'); } catch (err) { toast(err.message, { error: true }); }
+        }; });
+      };
+      draw();
+    },
+    settings: async () => {
+      const { settings: s } = await api('/settings');
+      const f = (k, label, type = 'text', ph = '') => type === 'area'
+        ? `<label class="field"><span>${label}</span><textarea name="${k}" placeholder="${esc(ph)}">${esc(s[k])}</textarea></label>`
+        : `<label class="field"><span>${label}</span><input name="${k}" type="${type}" value="${esc(s[k])}" placeholder="${esc(ph)}"></label>`;
+      const el = sheet('店舗情報・サイト設定', `<form id="setForm">
+        <div class="card"><h2>店舗情報</h2>${f('shopName', '店名')}${f('tagline', 'キャッチコピー')}${f('address', '住所', 'area')}${f('hours', '営業時間', 'area', '12:00〜20:00')}${f('holidays', '定休日')}
+          ${f('phone', '電話番号', 'tel')}${f('lineUrl', 'LINE 友だち追加URL', 'url', 'https://lin.ee/xxxx')}${f('lineId', 'LINE ID（表示用）')}${f('mapUrl', 'Googleマップ埋め込みURL', 'url')}</div>
+        <div class="card"><h2>お知らせ・イベント</h2>${f('notice', 'サイト上部のお知らせ（空欄で非表示）')}${f('eventInfo', 'イベント出店情報', 'area')}</div>
+        <div class="card"><h2>第一種動物取扱業の表示</h2>${f('bizName', '氏名又は名称')}${f('regType', '種別')}${f('regNo', '登録番号')}${f('regDate', '登録年月日')}${f('regExpiry', '有効期間の末日')}${f('manager', '動物取扱責任者')}</div>
+        <div class="card"><h2>表示ルール</h2>${f('newDays', '「新着」として表示する日数', 'number')}${f('soldVisibleDays', '売約済みをサイトに残す日数', 'number')}
+          <label class="field"><span>種類（カンマ区切り）</span><input name="categories" value="${esc(s.categories.join(','))}"></label></div>
+        <p class="err" id="sErr"></p><button class="btn">保存する</button></form>`);
+      el.querySelector('#setForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = Object.fromEntries(new FormData(e.target));
+        body.newDays = Number(body.newDays) || 14;
+        body.soldVisibleDays = Number(body.soldVisibleDays) || 0;
+        body.categories = body.categories.split(/[,、]/).map((c) => c.trim()).filter(Boolean);
+        try { const r = await api('/settings', { method: 'PUT', body }); state.categories = r.settings.categories; closeSheet(); toast('保存しました（サイトに反映されました）'); }
+        catch (err) { el.querySelector('#sErr').textContent = err.message; }
+      };
+    },
+  };
+  const fmtTime = (at) => new Date(`${at.replace(' ', 'T')}Z`).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+  const fmtChange = (p, a) => {
+    const v = (x, ask) => (ask ? 'ASK' : x == null || x === '' ? '未設定' : `¥${Number(x).toLocaleString()}`);
+    const from = v(p ? p.from : null, a ? a.from : null), to = v(p ? p.to : null, a ? a.to : null);
+    return p || a ? `${from} → ${to}` : '';
+  };
+
+  // ---------- ログイン ----------
+  async function renderLogin() {
+    let setup = false;
+    try { setup = (await api('/setup-needed')).needed; } catch {}
+    $app.innerHTML = `<div class="login"><form class="card" id="loginForm" autocomplete="on">
+      <div class="logo"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxZjNhMmMiLz48cGF0aCBkPSJNMTIgNDBjNi0xMSAxNy0xNiAyOC0xMyA2IDEuNSAxMCA1IDEyIDktNC0xLjYtOC0xLjQtMTEgLjYgMyAxIDUgMyA2IDYtNi40LTMtMTMuNi0zLTIwIDAtNSAyLjItMTAuNiAyLTE1LTIuNnoiIGZpbGw9IiNkOWI4NmEiLz48Y2lyY2xlIGN4PSI0NiIgY3k9IjMyLjUiIHI9IjEuOCIgZmlsbD0iIzFmM2EyYyIvPjwvc3ZnPgo=" alt=""><div><b>ES在庫</b><div class="note">エキゾチックサプライ 在庫管理</div></div></div>
+      ${setup ? '<p class="note">最初の店主アカウントを作成してください。</p><label class="field"><span>表示名</span><input name="name" required></label>' : ''}
+      <label class="field"><span>ログインID</span><input name="login" required autocapitalize="off" autocomplete="username"></label>
+      <label class="field"><span>パスワード</span><input name="password" type="password" required autocomplete="${setup ? 'new-password' : 'current-password'}"></label>
+      <p class="err" id="lErr"></p>
+      <button class="btn">${setup ? '作成してはじめる' : 'ログイン'}</button></form></div>`;
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      try { await api(setup ? '/setup' : '/login', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); boot(); }
+      catch (err) { document.getElementById('lErr').textContent = err.message; }
+    };
+  }
+
+  // ---------- 共通のクリック処理 ----------
+  document.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]');
+    if (act) { e.stopPropagation(); return changeStatus(act.dataset.no, act.dataset.act); }
+    const tab = e.target.closest('[data-tab]');
+    if (tab) return go(tab.dataset.tab);
+    const filter = e.target.closest('[data-filter]');
+    if (filter) { state.listFilter = filter.dataset.filter; return renderList(); }
+    const more = e.target.closest('[data-more]');
+    if (more) return moreActions[more.dataset.more]?.();
+    const open = e.target.closest('[data-open]');
+    if (open && !e.target.closest('.sheet')) return openEditor(open.dataset.open);
+  });
+
+  // ---------- 他のスタッフの操作をリアルタイムで反映 ----------
+  function listen() {
+    const es = new EventSource('/events');
+    es.addEventListener('open', () => { flushQueue(); syncAll().then((ok) => ok && rerenderData()); }); // 再接続のたびに取りこぼしを補う
+    es.addEventListener('item', async (e) => {
+      const d = JSON.parse(e.data);
+      if (d.status === 'deleted') { state.items.delete(d.no); saveLocal(); return rerenderData(); }
+      const known = state.items.get(d.no);
+      if (known && known.updated_at === d.updated_at) return;
+      try {
+        remember((await api(`/items/${encodeURIComponent(d.no)}`)).item);
+        saveLocal();
+        if (known) { refreshItem(d.no); document.getElementById(`item-${d.no}`)?.classList.add('flash'); loadStats(); }
+        else rerenderData();
+      } catch { /* 次の再接続で同期される */ }
+    });
+    es.addEventListener('reload', () => syncAll().then((ok) => ok && rerenderData()));
+  }
+  const setOnline = () => {
+    document.getElementById('offline').hidden = env.online();
+    if (env.online() && state.me) flushQueue();
+  };
+  env.on('online', setOnline);
+  env.on('offline', setOnline);
+  env.setInterval(() => { if (state.me) flushQueue(); }, 20e3);
+
+  async function boot() {
+    setOnline();
+    // 端末に保存してある在庫を先に表示して、起動を待たせない
+    const cachedMe = store.get('es-me', null);
+    if (!state.items.size) state.items = new Map(store.get('es-items', []).map((i) => [i.no, i]));
+    let me;
+    try {
+      me = await api('/me');
+      store.set('es-me', me);
+    } catch (e) {
+      if (e.status === 401) return;
+      if (!(e.network && cachedMe)) {
+        $app.innerHTML = `<div class="boot">${esc(e.message)}<br><button class="btn ghost" onclick="location.reload()">再読み込み</button></div>`;
+        return;
+      }
+      me = cachedMe; // 圏外でも、前回ログインした状態で使える
+    }
+    state.me = me.user;
+    state.categories = me.categories;
+    go(state.tab === 'import' && !isOwner() ? 'sell' : state.tab);
+    saveQueue(loadQueue());
+    if (!boot.listening) { listen(); boot.listening = true; }
+    if (await syncAll()) rerenderData();
+    flushQueue();
+  }
+
+  if (false) navigator.serviceWorker.register('/staff/sw.js', { scope: '/staff/' }).catch(() => {});
+  boot();
+})();
+
+}</script>
+<script>// デモ用ランタイム。本番のサーバー（Node.js + SQLite）の役割をブラウザ内で再現し、
+// 本物の公開サイトの表示処理（src/views.js）とスタッフアプリ（staff/app.js）をそのまま動かす。
+/* global __ES, ES_MODULES, startStaff */
+(() => {
+  'use strict';
+  const STATUSES = { available: '販売中', sold: '売約済み', hidden: '非公開' };
+  const LIMITS = { owner: 2, staff: 20 };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 23);
+  const jstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const daysAgo = (n) => new Date(Date.now() + 9 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+  class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+
+  // ---------- データ（サーバーのデータベースの代わり） ----------
+  let DB;
+  function resetDb() {
+    const seed = clone(__ES.seed);
+    // 見本の入荷日を「今日」基準にずらす（いつ開いても新着が並ぶように）
+    const latest = seed.items.reduce((m, i) => (i.arrived_at > m ? i.arrived_at : m), '0000');
+    const shift = Math.round((new Date(jstToday()) - new Date(latest)) / 864e5);
+    for (const it of seed.items) {
+      const d = new Date(it.arrived_at); d.setUTCDate(d.getUTCDate() + shift);
+      it.arrived_at = d.toISOString().slice(0, 10);
+      if (it.status === 'sold') it.sold_at = new Date(Date.now() - 2 * 3600e3).toISOString().replace('T', ' ').slice(0, 19);
+      it.updated_at = stamp();
+    }
+    DB = {
+      items: seed.items,
+      settings: seed.settings,
+      users: [
+        { id: 1, login: 'tencho', name: '店主', role: 'owner', active: 1, password: 'demo1234', created_at: stamp() },
+        { id: 2, login: 'staff1', name: '佐藤', role: 'staff', active: 1, password: 'demo1234', created_at: stamp() },
+      ],
+      logs: [],
+      seq: Math.max(...seed.items.map((i) => i.id)) + 1,
+      session: null,
+    };
+  }
+
+  const items = {
+    getByNo: (no) => DB.items.find((i) => i.no === String(no)) || null,
+    visible(it) {
+      if (it.status === 'available') return true;
+      if (it.status !== 'sold') return false;
+      const cut = new Date(Date.now() - (Number(DB.settings.soldVisibleDays) || 0) * 864e5).toISOString().replace('T', ' ').slice(0, 19);
+      return (it.sold_at || '') >= cut;
+    },
+    listPublic({ category, status, q, sort } = {}) {
+      let list = DB.items.filter(items.visible);
+      if (category) list = list.filter((i) => i.category === category);
+      if (status === 'available' || status === 'sold') list = list.filter((i) => i.status === status);
+      if (q) list = list.filter((i) => i.species.includes(q) || i.morph.includes(q) || i.no === q || i.note.includes(q));
+      const price = (dir) => (a, b) => (a.price_ask - b.price_ask) || ((a.price == null) - (b.price == null)) || dir * ((a.price ?? 0) - (b.price ?? 0));
+      const order = { price_asc: price(1), price_desc: price(-1), name: (a, b) => a.species.localeCompare(b.species, 'ja') || a.morph.localeCompare(b.morph, 'ja') }[sort]
+        || ((a, b) => b.arrived_at.localeCompare(a.arrived_at) || b.id - a.id);
+      return list.sort((a, b) => ((a.status === 'sold') - (b.status === 'sold')) || order(a, b)).map(clone);
+    },
+    isNew: (it) => it.status === 'available' && it.arrived_at >= daysAgo(Number(DB.settings.newDays) || 14),
+    listNewArrivals(limit = 12) {
+      return DB.items.filter(items.isNew).sort((a, b) => b.arrived_at.localeCompare(a.arrived_at) || b.id - a.id).slice(0, limit).map(clone);
+    },
+    countsPublic() {
+      const out = {};
+      for (const i of DB.items) if (i.status === 'available') out[i.category] = (out[i.category] || 0) + 1;
+      return [...Object.entries(out).map(([category, n]) => ({ category, n })), { category: '__sold', n: DB.items.filter((i) => i.status === 'sold' && items.visible(i)).length }];
+    },
+  };
+
+  // ---------- 本番のモジュールを読み込む ----------
+  const uploads = new Map();
+  const shims = {
+    './db': { STATUSES, DATA_DIR: '', getSettings: () => DB.settings },
+    './items': items,
+    'node:crypto': { createHash: () => ({ update() { return this; }, digest: () => Math.random().toString(16).slice(2).padEnd(24, '0') }) },
+    'node:fs': { existsSync: () => false, writeFileSync: (file, buf) => uploads.set(file.split('/').pop(), URL.createObjectURL(new Blob([buf]))) },
+    'node:path': { join: (...a) => a.join('/') },
+    exceljs: window.ExcelJS,
+  };
+  const load = (name) => { const module = { exports: {} }; ES_MODULES[name]((n) => shims[n], module, module.exports); return module.exports; };
+  const views = load('./views');
+  const importer = load('./importer');
+
+  // ---------- リアルタイム通知（Server-Sent Events の代わり） ----------
+  const bus = new Set();
+  const net = { staffOnline: true };
+  function broadcast(type, data) {
+    for (const es of bus) if (es.kind !== 'staff' || net.staffOnline) es.emit(type, data);
+  }
+  class FakeEventSource {
+    constructor(kind) { this.kind = kind; this.l = {}; bus.add(this); setTimeout(() => this.emit('open'), 30); }
+    addEventListener(t, fn) { (this.l[t] ||= []).push(fn); }
+    emit(t, data) { for (const fn of this.l[t] || []) fn({ data: JSON.stringify(data ?? {}) }); }
+    close() { bus.delete(this); }
+  }
+
+  // ---------- スタッフ用 API（Express の代わり） ----------
+  function log(user, item, action, detail = {}) {
+    DB.logs.unshift({ id: DB.logs.length + 1, at: new Date().toISOString().replace('T', ' ').slice(0, 19), user_name: user.name, item_no: item.no, action, detail });
+  }
+  const notify = (it) => broadcast('item', { id: it.id, no: it.no, status: it.status, updated_at: it.updated_at });
+  function setStatus(user, no, status) {
+    if (!STATUSES[status]) throw new HttpError(400, 'ステータスが不正です');
+    const it = items.getByNo(no);
+    if (!it) throw new HttpError(404, `管理番号 ${no} は見つかりません`);
+    if (it.status === status) return it;
+    log(user, it, 'status', { from: it.status, to: status });
+    it.status = status;
+    if (status === 'sold') it.sold_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    if (status === 'available') it.sold_at = null;
+    it.updated_at = stamp();
+    notify(it);
+    return it;
+  }
+  const EDITABLE = ['category', 'species', 'morph', 'sex', 'size', 'origin', 'birth', 'arrived_at', 'note'];
+  function applyFields(it, input) {
+    const changes = {};
+    for (const k of EDITABLE) if (input[k] !== undefined && String(input[k]).trim() !== it[k]) { changes[k] = 1; it[k] = String(input[k] ?? '').trim(); }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(it.arrived_at)) it.arrived_at = jstToday();
+    if (Array.isArray(input.photos)) it.photos = input.photos.map(String);
+    let priceChange = null;
+    if ('price' in input || 'price_ask' in input) {
+      const p = input.price === '' || input.price == null ? null : Math.round(Number(String(input.price).replace(/[^\d.]/g, '')));
+      const np = 'price' in input ? (Number.isFinite(p) ? p : null) : it.price;
+      const na = 'price_ask' in input ? !!input.price_ask : it.price_ask;
+      if (np !== it.price || na !== it.price_ask) priceChange = { price: { from: it.price, to: np }, price_ask: { from: it.price_ask, to: na } };
+      it.price = np; it.price_ask = na;
+    }
+    return { changes, priceChange };
+  }
+  function nextNo(reserved = []) {
+    const nums = [...DB.items.map((i) => i.no), ...reserved].filter((n) => /^\d+$/.test(n)).map(Number);
+    return String(Math.max(0, ...nums) + 1);
+  }
+  function create(user, input, silent) {
+    if (!String(input.species || '').trim()) throw new HttpError(400, '種名は必須です');
+    const no = String(input.no ?? '').trim() || nextNo();
+    if (items.getByNo(no)) throw new HttpError(409, `管理番号 ${no} は既に使われています`);
+    const it = { id: DB.seq++, no, category: '', species: '', morph: '', sex: '', size: '', origin: '', birth: '', arrived_at: jstToday(), price: null, price_ask: false, status: 'available', sold_at: null, note: '', photos: [], created_at: stamp(), updated_at: stamp() };
+    applyFields(it, input);
+    if (STATUSES[input.status]) it.status = input.status;
+    if (it.status === 'sold') it.sold_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    DB.items.push(it);
+    log(user, it, 'create');
+    if (!silent) notify(it);
+    return it;
+  }
+  function update(user, no, input, silent) {
+    const it = items.getByNo(no);
+    if (!it) throw new HttpError(404, `管理番号 ${no} は見つかりません`);
+    const newNo = String(input.no ?? '').trim();
+    if (newNo && newNo !== it.no) {
+      if (items.getByNo(newNo)) throw new HttpError(409, `管理番号 ${newNo} は既に使われています`);
+      it.no = newNo;
+    }
+    const { changes, priceChange } = applyFields(it, input);
+    if (priceChange) log(user, it, 'price', priceChange);
+    else if (Object.keys(changes).length) log(user, it, 'edit');
+    it.updated_at = stamp();
+    if (STATUSES[input.status] && input.status !== it.status) return setStatus(user, it.no, input.status);
+    if (!silent) notify(it);
+    return it;
+  }
+
+  async function handle(method, path, query, body, form) {
+    const user = DB.session && DB.users.find((u) => u.id === DB.session && u.active);
+    const owner = () => { if (user.role !== 'owner') throw new HttpError(403, 'この操作は店主のみ可能です'); };
+    if (path === '/setup-needed') return { needed: false };
+    if (path === '/login' && method === 'POST') {
+      const u = DB.users.find((x) => x.login === String(body.login || '').trim() && x.active);
+      if (!u || u.password !== body.password) throw new HttpError(401, 'IDまたはパスワードが違います');
+      DB.session = u.id;
+      return { ok: true };
+    }
+    if (path === '/logout') { DB.session = null; return { ok: true }; }
+    if (!user) throw new HttpError(401, 'ログインしてください');
+    if (path === '/me') return { user: { id: user.id, login: user.login, name: user.name, role: user.role }, limits: LIMITS, categories: DB.settings.categories };
+    if (path === '/items' && method === 'GET') return { items: [...DB.items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) };
+    if (path === '/items' && method === 'POST') { owner(); return { item: create(user, body) }; }
+    if (path === '/next-no') { owner(); return { no: nextNo() }; }
+    let m = path.match(/^\/items\/([^/]+)(\/status|\/photos)?$/);
+    if (m) {
+      const no = decodeURIComponent(m[1]);
+      if (m[2] === '/status') return { item: setStatus(user, no, body.status) };
+      if (m[2] === '/photos') {
+        owner();
+        const it = items.getByNo(no);
+        const file = form.get('photo');
+        return { item: update(user, no, { photos: [...it.photos, URL.createObjectURL(file)] }) };
+      }
+      if (method === 'GET') { const it = items.getByNo(no); if (!it) throw new HttpError(404, `管理番号 ${no} は見つかりません`); return { item: it }; }
+      if (method === 'PATCH') { owner(); return { item: update(user, no, body) }; }
+      if (method === 'DELETE') {
+        owner();
+        const it = items.getByNo(no);
+        DB.items = DB.items.filter((i) => i !== it);
+        log(user, it, 'delete');
+        broadcast('item', { id: it.id, no: it.no, status: 'deleted' });
+        return { ok: true };
+      }
+    }
+    if (path === '/import/preview') {
+      owner();
+      const file = form.get('file');
+      const text = form.get('text');
+      if (!(file instanceof File && file.size) && !text) throw new HttpError(400, 'ファイルを選ぶか、文章を貼り付けてください');
+      const isFile = file instanceof File && file.size;
+      if (isFile && /\.xlsx$/i.test(file.name) && !window.ExcelJS) throw new HttpError(400, 'このデモ環境ではExcelを読み込めませんでした。CSVか文章で試してください（本番ではExcelも読み込めます）');
+      const res = await importer.parseAny({ buffer: isFile ? new Uint8Array(await file.arrayBuffer()) : undefined, filename: isFile ? file.name : '', text: isFile ? undefined : text, categories: DB.settings.categories });
+      for (const r of res.rows) {
+        r._exists = !!(r.no && items.getByNo(r.no));
+        if (r.photos) r.photos = r.photos.map((u) => uploads.get(u.split('/').pop()) || u);
+      }
+      return res;
+    }
+    if (path === '/import/commit') {
+      owner();
+      const result = { created: 0, updated: 0, errors: [] };
+      const reserved = body.rows.map((r) => String(r.no ?? '').trim()).filter(Boolean);
+      for (const [i, raw] of body.rows.entries()) {
+        const { _warnings, _exists, ...r } = raw;
+        try {
+          if (!String(r.no ?? '').trim()) { r.no = nextNo(reserved); reserved.push(r.no); }
+          if (items.getByNo(r.no)) { update(user, r.no, r, true); result.updated++; }
+          else { create(user, { ...r, status: r.status || (body.newStatus === 'hidden' ? 'hidden' : 'available') }, true); result.created++; }
+        } catch (e) { result.errors.push({ row: i + 1, no: r.no, message: e.message }); }
+      }
+      broadcast('reload', {});
+      return result;
+    }
+    if (path === '/logs') { owner(); return { logs: DB.logs.slice(0, 200) }; }
+    if (path === '/settings' && method === 'GET') { owner(); return { settings: DB.settings }; }
+    if (path === '/settings' && method === 'PUT') { owner(); Object.assign(DB.settings, body); broadcast('reload', {}); return { settings: DB.settings }; }
+    if (path === '/users' && method === 'GET') { owner(); return { users: DB.users.map(({ password, ...u }) => u), limits: LIMITS }; }
+    const active = (role) => DB.users.filter((u) => u.role === role && u.active).length;
+    if (path === '/users' && method === 'POST') {
+      owner();
+      const { login, name, password, role = 'staff' } = body;
+      if (!/^[a-zA-Z0-9_.-]{2,32}$/.test(String(login || '').trim())) throw new HttpError(400, 'IDは半角英数字2〜32文字で入力してください');
+      if (!String(name || '').trim()) throw new HttpError(400, '表示名を入力してください');
+      if (String(password || '').length < 6) throw new HttpError(400, 'パスワードは6文字以上にしてください');
+      if (active(role) >= LIMITS[role]) throw new HttpError(400, `${role === 'owner' ? '店主' : 'スタッフ'}は最大${LIMITS[role]}名までです`);
+      if (DB.users.some((u) => u.login === login.trim())) throw new HttpError(409, 'そのIDは既に使われています');
+      DB.users.push({ id: DB.users.length + 1, login: login.trim(), name: name.trim(), role, active: 1, password, created_at: stamp() });
+      return { ok: true };
+    }
+    m = path.match(/^\/users\/(\d+)$/);
+    if (m && method === 'PATCH') {
+      owner();
+      const u = DB.users.find((x) => x.id === Number(m[1]));
+      if (body.active !== undefined) {
+        const next = body.active ? 1 : 0;
+        if (next && !u.active && active(u.role) >= LIMITS[u.role]) throw new HttpError(400, `${u.role === 'owner' ? '店主' : 'スタッフ'}は最大${LIMITS[u.role]}名までです`);
+        if (!next && u.role === 'owner' && active('owner') <= 1) throw new HttpError(400, '店主が0名になる変更はできません');
+        u.active = next;
+      }
+      if (body.password) u.password = body.password;
+      return { ok: true };
+    }
+    throw new HttpError(404, 'Not found');
+  }
+
+  async function fakeFetch(url, opts = {}) {
+    if (!net.staffOnline) throw new TypeError('Failed to fetch');
+    await new Promise((r) => setTimeout(r, 40)); // 通信の待ち時間をそれらしく
+    const u = new URL(url, 'https://demo.local');
+    const path = u.pathname.replace(/^\/api/, '');
+    const form = opts.body instanceof FormData ? opts.body : null;
+    const body = typeof opts.body === 'string' ? JSON.parse(opts.body) : {};
+    try {
+      const data = clone(await handle(opts.method || 'GET', path, Object.fromEntries(u.searchParams), body, form));
+      return { ok: true, status: 200, json: async () => data };
+    } catch (e) {
+      if (!(e instanceof HttpError)) console.error(e);
+      const status = e.status || 500;
+      return { ok: false, status, json: async () => ({ error: status >= 500 ? 'サーバーでエラーが発生しました' : e.message }) };
+    }
+  }
+
+  // ---------- 画面（Shadow DOM で本番の CSS をそのまま当てる） ----------
+  function shadowCss(css) {
+    return css
+      .replace(/:root:not\(\[data-theme="light"\]\)/g, ':host')
+      .replace(/:root\[data-theme="dark"\]/g, ':host-context([data-theme="dark"])')
+      .replace(/:root/g, ':host')
+      .replace(/(^|[\s,}])html\s*,\s*body(\s*\{)/gm, '$1.es-body$2')
+      .replace(/(^|[\s,}])html(\s*\{)/gm, '$1.es-html$2')
+      .replace(/(^|[\s,}])body(\s*[{:])/gm, '$1.es-body$2')
+      .replace(/92vh/g, 'calc(var(--screen-h) * .92)')
+      .replace(/100vh/g, 'var(--screen-h)')
+      .replace(/(\d+)vw/g, '$1cqi') // 画面幅の指定を、端末の枠の幅基準に
+      .replace(/@media \(max-width: (\d+)px\)/g, '@container screen (max-width: $1px)');
+  }
+  const FRAME_CSS = '.es-body{height:100%;overflow-y:auto;overflow-x:hidden;container-type:inline-size;container-name:screen;-webkit-overflow-scrolling:touch}';
+  function mount(host, css) {
+    const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<style>${FRAME_CSS}${shadowCss(css)}</style><div class="es-body"></div>`;
+    host.style.setProperty('--screen-h', `${host.clientHeight}px`);
+    return { root, body: root.querySelector('.es-body') };
+  }
+
+  // ---------- 公開サイト ----------
+  const site = { host: null, root: null, body: null, route: '/', es: null, changed: new Set(), timer: null };
+  function navigate(href, keepScroll) {
+    site.route = href;
+    const u = new URL(href, 'https://demo.local');
+    const q = Object.fromEntries(u.searchParams);
+    const s = DB.settings;
+    let html;
+    if (u.pathname === '/') html = views.home(s);
+    else if (u.pathname === '/stock') html = views.stock(s, q);
+    else if (u.pathname === '/shop') html = views.shop(s);
+    else if (u.pathname.startsWith('/item/')) {
+      const it = items.getByNo(decodeURIComponent(u.pathname.slice(6)));
+      html = it && it.status !== 'hidden' ? views.detail(s, clone(it)) : views.notFound(s);
+    } else html = views.notFound(s);
+    const doc = new DOMParser().parseFromString(html.split('/img/icon.svg').join(__ES.icon), 'text/html');
+    // 本番では並び替えを選ぶとページを読み直す。デモではページ内で切り替えるので、その指定を外す
+    doc.querySelectorAll('[onchange]').forEach((el) => el.removeAttribute('onchange'));
+    const active = site.root.activeElement;
+    const typing = active?.matches?.('.search') ? { value: active.value, pos: active.selectionStart } : null;
+    const top = site.body.scrollTop;
+    site.body.innerHTML = doc.body.innerHTML;
+    site.body.scrollTop = keepScroll ? top : 0;
+    if (typing) { const el = site.root.querySelector('.search'); if (el) { el.value = typing.value; el.focus(); el.setSelectionRange(typing.pos, typing.pos); } }
+    const pill = site.root.getElementById('livePill');
+    pill.hidden = false;
+    document.getElementById('siteUrl').textContent = `exotic-supply.jp${href === '/' ? '' : href}`;
+  }
+  function siteRefresh() {
+    clearTimeout(site.timer);
+    site.timer = setTimeout(() => {
+      navigate(site.route, true);
+      for (const no of site.changed) site.root.querySelectorAll(`[data-no="${CSS.escape(no)}"]`).forEach((el) => el.classList.add('changed'));
+      site.changed.clear();
+      const pill = site.root.getElementById('livePill');
+      const text = site.root.getElementById('liveText');
+      pill.classList.add('flash'); text.textContent = '在庫が更新されました';
+      setTimeout(() => { pill.classList.remove('flash'); text.textContent = '在庫をリアルタイム表示中'; }, 2500);
+    }, 300);
+  }
+  function startSite() {
+    site.host = document.getElementById('siteScreen');
+    Object.assign(site, mount(site.host, __ES.cssSite));
+    site.root.addEventListener('click', (e) => {
+      const thumb = e.target.closest('.gallery-thumbs button');
+      if (thumb) {
+        site.root.getElementById('mainPhoto').src = thumb.dataset.src;
+        thumb.parentElement.querySelectorAll('button').forEach((x) => x.toggleAttribute('aria-current', x === thumb));
+        return;
+      }
+      const a = e.target.closest('a[href]');
+      if (!a) return;
+      const href = a.getAttribute('href');
+      if (href.startsWith('/')) { e.preventDefault(); navigate(href); }
+      else if (/^tel:/.test(href)) { e.preventDefault(); toastOuter(`電話番号 ${href.slice(4)}（デモでは発信しません）`); }
+    });
+    site.root.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const p = new URLSearchParams(new FormData(e.target));
+      for (const [k, v] of [...p]) if (!v) p.delete(k);
+      navigate(`/stock${p.toString() ? `?${p}` : ''}`);
+    });
+    site.root.addEventListener('change', (e) => { if (e.target.form && e.target.matches('select, input[type=checkbox]')) e.target.form.requestSubmit(); });
+    site.es?.close();
+    site.es = new FakeEventSource('site');
+    site.es.addEventListener('item', (e) => { site.changed.add(JSON.parse(e.data).no); siteRefresh(); });
+    site.es.addEventListener('reload', siteRefresh);
+    navigate(site.route);
+  }
+
+  // ---------- スタッフアプリ ----------
+  let staffEnv = null;
+  function startStaffApp() {
+    staffEnv?.dispose();
+    // 切り替えのたびに画面ごと作り直す（前のログインの処理が新しい画面に触れないように）
+    const old = document.getElementById('staffScreen');
+    const host = old.cloneNode(false);
+    old.replaceWith(host);
+    const { root, body } = mount(host, __ES.cssStaff);
+    body.innerHTML = __ES.staffBody;
+    const memory = new Map();
+    const listeners = [];
+    const timers = [];
+    const sources = [];
+    staffEnv = {
+      document: {
+        getElementById: (id) => root.getElementById(id),
+        querySelector: (s) => root.querySelector(s),
+        querySelectorAll: (s) => root.querySelectorAll(s),
+        createElement: (t) => document.createElement(t),
+        body: { appendChild: (el) => body.appendChild(el) },
+        addEventListener: (...a) => root.addEventListener(...a),
+        get activeElement() { return root.activeElement; },
+      },
+      fetch: fakeFetch,
+      EventSource: class extends FakeEventSource { constructor() { super('staff'); sources.push(this); } },
+      localStorage: { getItem: (k) => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, String(v)), removeItem: (k) => memory.delete(k) },
+      confirm: () => true, // デモでは確認ダイアログを省略
+      prompt: () => 'demo1234',
+      online: () => net.staffOnline,
+      on: (t, fn) => listeners.push([t, fn]),
+      setInterval: (fn, ms) => timers.push(setInterval(fn, ms)),
+      openSite: () => { showPanel('site'); navigate('/'); },
+      emit: (t) => listeners.filter(([x]) => x === t).forEach(([, fn]) => fn()),
+      dispose: () => { timers.forEach(clearInterval); sources.forEach((s) => s.close()); },
+    };
+    startStaff(staffEnv);
+  }
+
+  // ---------- デモの操作パネル ----------
+  function toastOuter(msg) {
+    const t = document.getElementById('demoToast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastOuter.t); toastOuter.t = setTimeout(() => { t.hidden = true; }, 2600);
+  }
+  function loginAs(login) {
+    DB.session = DB.users.find((u) => u.login === login).id;
+    document.querySelectorAll('[data-login]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.login === login)));
+    startStaffApp();
+  }
+  function setOnline(on) {
+    net.staffOnline = on;
+    const b = document.getElementById('netToggle');
+    b.setAttribute('aria-pressed', String(!on));
+    b.textContent = on ? '圏外にしてみる' : '電波を戻す';
+    staffEnv?.emit(on ? 'online' : 'offline');
+    if (on) for (const es of bus) if (es.kind === 'staff') es.emit('open');
+  }
+  function showPanel(name) {
+    document.querySelectorAll('[data-panel]').forEach((p) => { p.dataset.active = String(p.dataset.panel === name); });
+    document.querySelectorAll('[data-show]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.show === name)));
+  }
+  function setSiteMode(mode) {
+    document.querySelector('.stage').dataset.siteMode = mode;
+    document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    requestAnimationFrame(() => { site.host.style.setProperty('--screen-h', `${site.host.clientHeight}px`); });
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.login) loginAs(t.dataset.login);
+    else if (t.id === 'netToggle') setOnline(!net.staffOnline);
+    else if (t.dataset.show) showPanel(t.dataset.show);
+    else if (t.dataset.mode) setSiteMode(t.dataset.mode);
+    else if (t.id === 'resetDemo') { resetDb(); setOnline(true); site.route = '/'; startSite(); loginAs('staff1'); toastOuter('見本データに戻しました'); }
+  });
+  addEventListener('resize', () => {
+    for (const id of ['siteScreen', 'staffScreen']) { const h = document.getElementById(id); h.style.setProperty('--screen-h', `${h.clientHeight}px`); }
+  });
+
+  resetDb();
+  startSite();
+  loginAs('staff1');
+})();
+</script>
