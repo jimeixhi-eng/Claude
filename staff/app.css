@@ -132,3 +132,5 @@ main { padding: 14px 16px calc(var(--tab-h) + env(safe-area-inset-bottom) + 24px
 .toast button { border: 0; background: var(--accent); color: #1b1a12; font-weight: 800; border-radius: 10px; padding: 10px 14px; white-space: nowrap; }
 .toast.error { background: var(--sold); }
 .offline { position: fixed; top: 0; left: 0; right: 0; z-index: 40; background: var(--sold); color: #fff; text-align: center; font-size: 13px; padding: calc(env(safe-area-inset-top) + 4px) 8px 4px; }
+.pending { position: fixed; left: 0; right: 0; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); z-index: 7; background: var(--accent); color: #1b1a12; text-align: center; font-size: 13px; font-weight: 700; padding: 6px 8px; }
+body:has(#pending:not([hidden])) .toast { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 44px); }

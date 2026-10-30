@@ -16,18 +16,96 @@
 
   // ---------- 通信 ----------
   async function api(path, { method = 'GET', body, form } = {}) {
-    const res = await fetch(`/api${path}`, {
-      method,
-      headers: { 'X-Requested-With': 'es-staff', ...(body && { 'Content-Type': 'application/json' }) },
-      body: form || (body && JSON.stringify(body)),
-      credentials: 'same-origin',
-    });
+    let res;
+    try {
+      res = await fetch(`/api${path}`, {
+        method,
+        headers: { 'X-Requested-With': 'es-staff', ...(body && { 'Content-Type': 'application/json' }) },
+        body: form || (body && JSON.stringify(body)),
+        credentials: 'same-origin',
+      });
+    } catch {
+      throw Object.assign(new Error('通信できません。電波の状況を確認してください'), { network: true });
+    }
     const data = await res.json().catch(() => ({}));
     if (res.status === 401 && path !== '/login') { state.me = null; renderLogin(); }
     if (!res.ok) throw Object.assign(new Error(data.error || '通信に失敗しました'), { status: res.status });
     return data;
   }
   const remember = (it) => { state.items.set(it.no, it); return it; };
+
+  // ---------- 端末内の在庫コピー ----------
+  // 全在庫を端末に持っておき、検索は通信せずにその場で行う（入力した瞬間に候補が出る・電波がなくても探せる）
+  const store = {
+    get(k, fallback) { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 容量不足などは無視 */ } },
+  };
+  const saveLocal = () => store.set('es-items', [...state.items.values()]);
+  async function syncAll() {
+    try {
+      const { items } = await api('/items?limit=10000');
+      state.items = new Map(items.map((i) => [i.no, i]));
+      // 送信待ちの変更は、サーバーの値より端末の操作を優先して表示する
+      for (const job of loadQueue()) { const it = state.items.get(job.no); if (it) it.status = job.status; }
+      saveLocal();
+      return true;
+    } catch { return false; }
+  }
+  function searchLocal(q, { status = '', limit = 300 } = {}) {
+    const key = q.trim().normalize('NFKC').toLowerCase();
+    const scored = [];
+    for (const it of state.items.values()) {
+      if (status && it.status !== status) continue;
+      let score = 3;
+      if (key) {
+        const no = String(it.no).toLowerCase();
+        if (no === key) score = 0;
+        else if (no.startsWith(key)) score = 1;
+        else if (`${it.species} ${it.morph}`.normalize('NFKC').toLowerCase().includes(key)) score = 2;
+        else continue;
+      }
+      scored.push([score, it]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || (a[0] === 1 ? a[1].no.length - b[1].no.length : 0) || String(b[1].updated_at).localeCompare(String(a[1].updated_at)));
+    return scored.slice(0, limit).map(([, it]) => it);
+  }
+  const utcNow = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+  // ---------- 送信待ち（電波がないときの操作） ----------
+  const loadQueue = () => store.get('es-queue', []);
+  function saveQueue(q) {
+    store.set('es-queue', q);
+    const el = document.getElementById('pending');
+    if (el) { el.hidden = !q.length; el.textContent = `送信待ち ${q.length}件 ・ 電波が戻ると自動で送信します`; }
+  }
+  function enqueue(no, status) {
+    const q = loadQueue().filter((j) => j.no !== no); // 同じ番号は最後の操作だけ送ればよい
+    q.push({ no, status });
+    saveQueue(q);
+  }
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing || !loadQueue().length) return;
+    flushing = true;
+    try {
+      for (const job of loadQueue()) {
+        try {
+          const { item } = await api(`/items/${encodeURIComponent(job.no)}/status`, { method: 'POST', body: { status: job.status } });
+          remember(item);
+          refreshItem(job.no);
+        } catch (e) {
+          if (e.network) break; // まだ圏外。次の機会に再送
+          toast(`No.${job.no} を送信できませんでした：${e.message}`, { error: true });
+        }
+        saveQueue(loadQueue().filter((j) => !(j.no === job.no && j.status === job.status)));
+      }
+      if (!loadQueue().length) toast('送信待ちの操作をすべて送信しました');
+    } finally {
+      flushing = false;
+      saveLocal();
+      loadStats();
+    }
+  }
 
   // ---------- トースト ----------
   let toastTimer;
@@ -44,21 +122,30 @@
   async function changeStatus(no, status, { silent } = {}) {
     const it = state.items.get(no);
     const prev = it?.status;
-    if (it) { it.status = status; refreshItem(no); }
-    try {
-      const { item } = await api(`/items/${encodeURIComponent(no)}/status`, { method: 'POST', body: { status } });
-      remember(item);
-      refreshItem(no);
+    const prevSoldAt = it?.sold_at;
+    if (it) { it.status = status; if (status === 'sold') it.sold_at = utcNow(); refreshItem(no); }
+    const undo = () => changeStatus(no, prev, { silent: true }).then(() => toast(`No.${no} を元に戻しました`));
+    const done = () => {
+      saveLocal();
       loadStats();
-      if (!silent) {
-        toast(`No.${no} を「${STATUS[status]}」にしました`, { undo: () => changeStatus(no, prev, { silent: true }).then(() => toast(`No.${no} を元に戻しました`)) });
-      }
       if (state.tab === 'sell' && status === 'sold') {
         const input = document.getElementById('noInput');
         if (input) { input.value = ''; input.focus(); }
       }
+    };
+    try {
+      const { item } = await api(`/items/${encodeURIComponent(no)}/status`, { method: 'POST', body: { status } });
+      remember(item);
+      refreshItem(no);
+      if (!silent) toast(`No.${no} を「${STATUS[status]}」にしました`, { undo });
+      done();
     } catch (e) {
-      if (it) { it.status = prev; refreshItem(no); }
+      if (e.network) {
+        enqueue(no, status);
+        if (!silent) toast(`圏外のため保存しました（No.${no}）。電波が戻ると自動で送信します`, { undo });
+        return done();
+      }
+      if (it) { it.status = prev; it.sold_at = prevSoldAt; refreshItem(no); }
       toast(e.message, { error: true });
     }
   }
@@ -112,12 +199,18 @@
       <main id="main">${content}</main>
       <nav class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}"${state.tab === k ? ' aria-current="page"' : ''}>${ICONS[k]}<span>${l}</span></button>`).join('')}</nav>`;
   }
-  async function loadStats() {
-    try {
-      state.stats = await api('/stats');
-      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('stAvail', state.stats.available); set('stSold', state.stats.soldToday); set('stHidden', state.stats.hidden);
-    } catch { /* 表示だけなので無視 */ }
+  function loadStats() {
+    const jstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const since = new Date(`${jstToday}T00:00:00+09:00`).toISOString().replace('T', ' ').slice(0, 19);
+    const s = { available: 0, hidden: 0, soldToday: 0 };
+    for (const it of state.items.values()) {
+      if (it.status === 'available') s.available++;
+      else if (it.status === 'hidden') s.hidden++;
+      else if (it.status === 'sold' && it.sold_at >= since) s.soldToday++;
+    }
+    state.stats = s;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('stAvail', s.available); set('stSold', s.soldToday); set('stHidden', s.hidden);
   }
 
   function go(tab) {
@@ -136,20 +229,15 @@
       <div class="list" id="results"></div>`);
     const input = document.getElementById('noInput');
     const results = document.getElementById('results');
-    let seq = 0, t;
-    const search = async () => {
+    const search = () => {
       const q = input.value.trim().normalize('NFKC');
-      const my = ++seq;
       if (!q) { results.innerHTML = ''; return; }
-      try {
-        const { items } = await api(`/items?q=${encodeURIComponent(q)}&limit=20`);
-        if (my !== seq) return;
-        items.forEach(remember);
-        results.innerHTML = items.length ? items.map((i) => itemCard(i)).join('') : `<p class="empty">「${esc(q)}」に一致する在庫がありません</p>`;
-      } catch (e) { results.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+      const items = searchLocal(q, { limit: 20 });
+      results.innerHTML = items.length ? items.map((i) => itemCard(i)).join('')
+        : `<p class="empty">「${esc(q)}」に一致する在庫がありません${state.items.size ? '' : '<br>（在庫データを読み込めていません。電波の良い場所で開き直してください）'}</p>`;
     };
-    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(search, 120); });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(t); search(); input.blur(); } });
+    input.addEventListener('input', search);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { search(); input.blur(); } });
     document.getElementById('clearNo').onclick = () => { input.value = ''; results.innerHTML = ''; input.focus(); };
     input.focus();
     loadStats();
@@ -165,19 +253,22 @@
       <div class="list" id="listBox"><p class="empty">読み込み中…</p></div>`);
     const q = document.getElementById('listQ');
     let t;
-    q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { state.listQuery = q.value.trim(); loadList(); }, 200); });
+    q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { state.listQuery = q.value.trim(); loadList(); }, 100); });
     document.getElementById('newItem')?.addEventListener('click', () => openEditor(null));
     loadList();
     loadStats();
   }
-  async function loadList() {
+  function loadList() {
     const box = document.getElementById('listBox');
     if (!box) return;
-    try {
-      const { items } = await api(`/items?status=${state.listFilter}&q=${encodeURIComponent(state.listQuery)}&limit=300`);
-      items.forEach(remember);
-      box.innerHTML = items.length ? items.map((i) => itemCard(i)).join('') : '<p class="empty">該当する在庫はありません</p>';
-    } catch (e) { box.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+    const items = searchLocal(state.listQuery, { status: state.listFilter, limit: 300 });
+    box.innerHTML = items.length ? items.map((i) => itemCard(i)).join('') : '<p class="empty">該当する在庫はありません</p>';
+  }
+  // 在庫データが入れ替わったとき、今の画面の表示だけを更新する
+  function rerenderData() {
+    loadStats();
+    if (state.tab === 'list') loadList();
+    if (state.tab === 'sell') document.getElementById('noInput')?.dispatchEvent(new Event('input'));
   }
 
   // ---------- 生体の詳細・編集シート ----------
@@ -194,7 +285,10 @@
 
   async function openEditor(no) {
     let it = no ? state.items.get(no) : null;
-    if (no) { try { it = remember((await api(`/items/${encodeURIComponent(no)}`)).item); } catch (e) { return toast(e.message, { error: true }); } }
+    if (no) {
+      try { it = remember((await api(`/items/${encodeURIComponent(no)}`)).item); saveLocal(); }
+      catch (e) { if (!it || !e.network) return toast(e.message, { error: true }); } // 圏外なら端末内の情報で表示
+    }
     if (!isOwner()) {
       const rows = [['種類', it.category], ['モルフ', it.morph], ['性別', it.sex], ['サイズ', it.size], ['CB/WB', it.origin], ['ハッチ日', it.birth], ['入荷日', it.arrived_at], ['価格', yen(it)], ['備考', it.note]].filter(([, v]) => v);
       const el = sheet(`No.${it.no} ${it.species}`, `
@@ -276,6 +370,7 @@
       try {
         const { item } = it ? await api(`/items/${encodeURIComponent(it.no)}`, { method: 'PATCH', body }) : await api('/items', { method: 'POST', body });
         remember(item);
+        saveLocal();
         closeSheet();
         toast(it ? `No.${item.no} を保存しました` : `No.${item.no} を登録しました`);
         if (state.tab === 'list') loadList();
@@ -284,7 +379,7 @@
     });
     el.querySelector('#del')?.addEventListener('click', async () => {
       if (!confirm(`No.${it.no}（${it.species}）を削除します。元に戻せません。よろしいですか？\n※売れた場合は削除せず「売約済み」にしてください。`)) return;
-      try { await api(`/items/${encodeURIComponent(it.no)}`, { method: 'DELETE' }); state.items.delete(it.no); closeSheet(); toast('削除しました'); loadList(); loadStats(); }
+      try { await api(`/items/${encodeURIComponent(it.no)}`, { method: 'DELETE' }); state.items.delete(it.no); saveLocal(); closeSheet(); toast('削除しました'); loadList(); loadStats(); }
       catch (err) { toast(err.message, { error: true }); }
     });
   }
@@ -351,6 +446,7 @@
         preview = null;
         box.innerHTML = `<div class="card"><h2>取り込みが完了しました</h2><p>新規 ${r.created}件・上書き ${r.updated}件${r.errors.length ? `・エラー ${r.errors.length}件` : ''}</p>${r.errors.map((e) => `<p class="note">⚠ ${esc(e.no ? `No.${e.no}` : `${e.row}行目`)}：${esc(e.message)}</p>`).join('')}</div>`;
         document.getElementById('impText').value = '';
+        await syncAll();
         document.getElementById('impFile').value = '';
         loadStats();
       } catch (e) { document.getElementById('commitErr').textContent = e.message; }
@@ -369,7 +465,13 @@
   }
   const moreActions = {
     site: () => window.open('/', '_blank'),
-    logout: async () => { if (!confirm('ログアウトしますか？')) return; await api('/logout', { method: 'POST' }).catch(() => {}); state.me = null; renderLogin(); },
+    logout: async () => {
+      const pending = loadQueue().length;
+      if (!confirm(pending ? `まだ送信されていない操作が${pending}件あります。ログアウトすると失われます。ログアウトしますか？` : 'ログアウトしますか？')) return;
+      await api('/logout', { method: 'POST' }).catch(() => {});
+      ['es-me', 'es-items', 'es-queue'].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      state.me = null; state.items = new Map(); renderLogin();
+    },
     install: () => sheet('ホーム画面に追加', `<div class="card">
       <h2>iPhone（Safari）</h2><p>画面下の共有ボタン（□に↑）→「ホーム画面に追加」→「追加」。</p>
       <h2>Android（Chrome）</h2><p>右上の︙ →「アプリをインストール」または「ホーム画面に追加」。</p>
@@ -481,32 +583,53 @@
   // ---------- 他のスタッフの操作をリアルタイムで反映 ----------
   function listen() {
     const es = new EventSource('/events');
+    es.addEventListener('open', () => { flushQueue(); syncAll().then((ok) => ok && rerenderData()); }); // 再接続のたびに取りこぼしを補う
     es.addEventListener('item', async (e) => {
       const d = JSON.parse(e.data);
+      if (d.status === 'deleted') { state.items.delete(d.no); saveLocal(); return rerenderData(); }
       const known = state.items.get(d.no);
-      if (known && d.status !== 'deleted' && known.updated_at !== d.updated_at) {
-        try { remember((await api(`/items/${encodeURIComponent(d.no)}`)).item); refreshItem(d.no); document.getElementById(`item-${d.no}`)?.classList.add('flash'); } catch {}
-      }
-      loadStats();
+      if (known && known.updated_at === d.updated_at) return;
+      try {
+        remember((await api(`/items/${encodeURIComponent(d.no)}`)).item);
+        saveLocal();
+        if (known) { refreshItem(d.no); document.getElementById(`item-${d.no}`)?.classList.add('flash'); loadStats(); }
+        else rerenderData();
+      } catch { /* 次の再接続で同期される */ }
     });
-    es.addEventListener('reload', () => { loadStats(); if (state.tab === 'list') loadList(); });
+    es.addEventListener('reload', () => syncAll().then((ok) => ok && rerenderData()));
   }
-
-  const setOnline = () => { document.getElementById('offline').hidden = navigator.onLine; };
+  const setOnline = () => {
+    document.getElementById('offline').hidden = navigator.onLine;
+    if (navigator.onLine && state.me) flushQueue();
+  };
   addEventListener('online', setOnline);
   addEventListener('offline', setOnline);
+  setInterval(() => { if (state.me) flushQueue(); }, 20e3);
 
   async function boot() {
     setOnline();
+    // 端末に保存してある在庫を先に表示して、起動を待たせない
+    const cachedMe = store.get('es-me', null);
+    if (!state.items.size) state.items = new Map(store.get('es-items', []).map((i) => [i.no, i]));
+    let me;
     try {
-      const me = await api('/me');
-      state.me = me.user;
-      state.categories = me.categories;
-      go(state.tab === 'import' && !isOwner() ? 'sell' : state.tab);
-      if (!boot.listening) { listen(); boot.listening = true; }
+      me = await api('/me');
+      store.set('es-me', me);
     } catch (e) {
-      if (e.status !== 401) $app.innerHTML = `<div class="boot">${esc(e.message)}<br><button class="btn ghost" onclick="location.reload()">再読み込み</button></div>`;
+      if (e.status === 401) return;
+      if (!(e.network && cachedMe)) {
+        $app.innerHTML = `<div class="boot">${esc(e.message)}<br><button class="btn ghost" onclick="location.reload()">再読み込み</button></div>`;
+        return;
+      }
+      me = cachedMe; // 圏外でも、前回ログインした状態で使える
     }
+    state.me = me.user;
+    state.categories = me.categories;
+    go(state.tab === 'import' && !isOwner() ? 'sell' : state.tab);
+    saveQueue(loadQueue());
+    if (!boot.listening) { listen(); boot.listening = true; }
+    if (await syncAll()) rerenderData();
+    flushQueue();
   }
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/staff/sw.js', { scope: '/staff/' }).catch(() => {});

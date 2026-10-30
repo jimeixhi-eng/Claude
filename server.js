@@ -8,6 +8,7 @@ const items = require('./src/items');
 const views = require('./src/views');
 const realtime = require('./src/realtime');
 const importer = require('./src/importer');
+const { scheduleBackups } = require('./src/backup');
 
 const app = express();
 app.disable('x-powered-by');
@@ -38,6 +39,17 @@ app.get('/item/:no', (req, res) => {
   html(res, views.detail(getSettings(), it));
 });
 app.get('/events', realtime.subscribe);
+
+// 検索エンジン向け
+const siteUrl = (req) => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(`User-agent: *\nDisallow: /staff/\nDisallow: /api/\nSitemap: ${siteUrl(req)}/sitemap.xml\n`);
+});
+app.get('/sitemap.xml', (req, res) => {
+  const base = siteUrl(req);
+  const urls = ['/', '/stock', '/shop', ...items.listPublic({ status: 'available' }).map((it) => `/item/${encodeURIComponent(it.no)}`)];
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${views.esc(base + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
+});
 
 // ---------- スタッフ用 API ----------
 const api = express.Router();
@@ -169,6 +181,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 3000);
+  scheduleBackups();
   app.listen(port, () => console.log(`エキゾチックサプライ: http://localhost:${port}  （スタッフアプリ: /staff/）`));
 }
 

@@ -156,3 +156,17 @@ test('取り込み：番号なしの行の自動採番が、同じリスト内�
   assert.equal((await owner('/api/items?limit=500')).data.items.length, before + 2);
   assert.equal((await owner('/api/items/901')).data.item.species, 'クレステッドゲッコー');
 });
+
+test('robots.txt と sitemap.xml（販売中の個体だけ載る）', async () => {
+  const robots = await (await fetch(`${base}/robots.txt`)).text();
+  assert.match(robots, /Disallow: \/staff\//);
+  const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
+  assert.match(sitemap, /\/item\/1</);
+  assert.doesNotMatch(sitemap, /\/item\/3</); // 非公開
+});
+
+test('バックアップを作成できる', () => {
+  const { backupNow } = require('../src/backup');
+  const file = backupNow();
+  assert.ok(fs.statSync(file).size > 0);
+});
