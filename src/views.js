@@ -129,7 +129,7 @@ function legalHtml(s) {
   const rows = [
     ['氏名又は名称', s.bizName || s.shopName],
     ['事業所の名称', s.shopName],
-    ['事業所の所在地', s.address],
+    ['事業所の所在地', String(s.address || '').split('\n')[0]], // 2行目以降（駅からの道順など）は載せない
     ['動物取扱業の種別', s.regType],
     ['登録番号', s.regNo],
     ['登録年月日', s.regDate],
@@ -193,7 +193,8 @@ function home(s) {
 }
 
 function shopTable(s) {
-  const rows = [['住所', s.address], ['営業時間', s.hours], ['定休日', s.holidays], ['電話', s.phone], ['LINE', s.lineId]].filter(([, v]) => v);
+  const rows = [['住所', s.address], ['営業時間', s.hours], ['定休日', s.holidays], [s.phone2 ? '電話（爬虫類の在庫・買取）' : '電話', s.phone],
+    [`電話（${s.phone2Label || 'その他'}）`, s.phone2], ['LINE', s.lineId]].filter(([, v]) => v);
   return rows.length ? `<dl class="shop-table">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v).replace(/\n/g, '<br>')}</dd></div>`).join('')}</dl>` : '<p class="empty">店舗情報は準備中です。</p>';
 }
 

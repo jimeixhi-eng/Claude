@@ -79,7 +79,9 @@ const DEFAULT_SETTINGS = {
   address: '大阪府寝屋川市田井西町33-6\n京阪 香里園駅 7番出口より徒歩7分',
   hours: '水・木・金・土・日 14:00〜20:00',
   holidays: '月曜・火曜',
-  phone: '',
+  phone: '080-5349-3261',             // 爬虫類の在庫・入荷・買取・下取り
+  phone2: '080-5359-4395',            // 飼育相談・鳥・小動物
+  phone2Label: '飼育相談・鳥・小動物',
   lineUrl: '',
   lineId: '',
   mapUrl: '',
@@ -97,7 +99,7 @@ const DEFAULT_SETTINGS = {
   notice: '',
   // 動物取扱業の標識（法定表示）
   bizName: '',
-  regNo: '',
+  regNo: '大阪府登録4330-1号',
   regDate: '',
   regExpiry: '',
   regType: '販売',
