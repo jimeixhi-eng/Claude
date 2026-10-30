@@ -69,7 +69,7 @@ h1, h2, h3 { line-height: 1.35; margin: 0; }
 .section-head a { font-size: 14px; color: var(--brand-2); text-decoration: none; font-weight: 700; }
 .page-title { font-size: 24px; }
 .page-lead { color: var(--muted); margin: 4px 0 16px; font-size: 14px; }
-.page-lead .updated { opacity: 1; }
+.page-lead .updated { opacity: 1; display: block; margin-left: 0; }
 .empty { color: var(--muted); padding: 24px 0; }
 
 /* grid & cards */

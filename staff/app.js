@@ -6,10 +6,10 @@
   const $toast = document.getElementById('toast');
   const STATUS = { available: '販売中', sold: '売約済み', hidden: '非公開' };
   const SEX = ['', 'オス', 'メス', 'ペア', '不明'];
-  const SEX_MARK = { オス: '♂', メス: '♀', ペア: '♂♀', 不明: '?' };
+  const SEX_MARK = { オス: '♂', メス: '♀', ペア: '♂♀', 不明: '性別不明' };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = (it) => (it.price_ask ? 'ASK' : it.price == null ? '価格未設定' : `¥${Number(it.price).toLocaleString('ja-JP')}`);
-  const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#e8e4d8"/><path d="M14 40c6-10 16-14 26-12 6 1 10 5 12 9-4-2-8-2-11 0 3 1 5 3 6 6-6-3-13-3-19 0-5 2-10 2-14-3z" fill="#2f5a43" opacity=".35"/></svg>');
+  const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M14 40c6-10 16-14 26-12 6 1 10 5 12 9-4-2-8-2-11 0 3 1 5 3 6 6-6-3-13-3-19 0-5 2-10 2-14-3z" fill="#2f5a43" opacity=".35"/></svg>');
 
   const state = { me: null, categories: [], tab: 'sell', items: new Map(), stats: null, listFilter: 'available', listQuery: '' };
   const isOwner = () => state.me?.role === 'owner';
@@ -439,7 +439,7 @@
       };
     },
   };
-  const fmtTime = (at) => new Date(`${at.replace(' ', 'T')}Z`).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const fmtTime = (at) => new Date(`${at.replace(' ', 'T')}Z`).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
   const fmtChange = (p, a) => {
     const v = (x, ask) => (ask ? 'ASK' : x == null || x === '' ? '未設定' : `¥${Number(x).toLocaleString()}`);
     const from = v(p ? p.from : null, a ? a.from : null), to = v(p ? p.to : null, a ? a.to : null);
