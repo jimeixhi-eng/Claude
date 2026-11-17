@@ -63,7 +63,7 @@ function generateStock(owner) {
 async function buildSeed() {
   const owner = { id: 1, name: '店主', role: 'owner' };
   for (const f of ['blog-sample.txt', 'list-sample.csv', 'list-sample.xlsx']) {
-    const { rows } = await parseAny({ buffer: fs.readFileSync(path.join(ROOT, 'samples', f)), filename: f });
+    const { rows } = await parseAny({ buffer: fs.readFileSync(path.join(ROOT, 'samples', f)), filename: f, categories: getSettings().categories });
     items.importRows(owner, rows.map(({ _warnings, ...r }) => r));
   }
   items.create(owner, { no: '401', species: 'ヨウム', morph: 'コンゴウヨウム', sex: 'オス', size: '若鳥', origin: '国内CB', price: 380000, note: '手乗り。人によく慣れています' }, { silent: true });
@@ -92,6 +92,7 @@ function staffApp() {
     ["navigator.onLine", 'env.online()'],
     ["'serviceWorker' in navigator", 'false'],
     ["window.open('/', '_blank')", 'env.openSite()'],
+    ["window.open('/admin/', '_blank')", 'env.openAdmin()'],
     ["addEventListener('online', setOnline)", "env.on('online', setOnline)"],
     ["addEventListener('offline', setOnline)", "env.on('offline', setOnline)"],
     ['setInterval(', 'env.setInterval('],
@@ -104,6 +105,24 @@ function staffApp() {
   return `function startStaff(env) {\n  const { document, fetch, EventSource, localStorage, confirm, prompt } = env;\n${src}\n}`;
 }
 
+// 店主のパソコン画面も同じやり方で詰める
+function adminApp() {
+  let src = read('admin/admin.js');
+  const swaps = [
+    ['function saveFile(name, blob) {', 'function saveFile(name, blob) {\n    if (env.saveFile) return env.saveFile(name, blob);'],
+  ];
+  for (const [from, to] of swaps) {
+    if (!src.includes(from)) throw new Error(`admin/admin.js に「${from}」が見つかりません`);
+    src = src.split(from).join(to);
+  }
+  src = src.split('/img/icon.svg').join(ICON);
+  return `function startAdmin(env) {\n  const { document, fetch, EventSource, confirm, prompt } = env;\n${src}\n}`;
+}
+function adminBody() {
+  const html = read('admin/index.html');
+  return html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>')).replace(/<script[\s\S]*?<\/script>/g, '').trim();
+}
+
 function staffBody() {
   const html = read('staff/index.html');
   return html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>')).replace(/<script[\s\S]*?<\/script>/g, '').trim();
@@ -113,9 +132,10 @@ function staffBody() {
   const seed = await buildSeed();
   const modules = ['views', 'importer'].map((m) => `'./${m}': function (require, module, exports) {\n${read(`src/${m}.js`)}\n}`).join(',\n');
   const inject = [
-    `<script>window.__ES = { seed: ${jsonSafe(seed)}, cssSite: ${jsonSafe(read('public/css/site.css'))}, cssStaff: ${jsonSafe(read('staff/app.css'))}, staffBody: ${jsonSafe(staffBody())}, icon: ${jsonSafe(ICON)}, logo: ${jsonSafe(LOGO)} };</script>`,
+    `<script>window.__ES = { seed: ${jsonSafe(seed)}, cssSite: ${jsonSafe(read('public/css/site.css'))}, cssStaff: ${jsonSafe(read('staff/app.css'))}, staffBody: ${jsonSafe(staffBody())}, cssAdmin: ${jsonSafe(read('admin/admin.css'))}, adminBody: ${jsonSafe(adminBody())}, icon: ${jsonSafe(ICON)}, logo: ${jsonSafe(LOGO)} };</script>`,
     `<script>const ES_MODULES = {\n${jsSafe(modules)}\n};</script>`,
     `<script>${jsSafe(staffApp())}</script>`,
+    `<script>${jsSafe(adminApp())}</script>`,
     `<script>${jsSafe(read('demo/runtime.js'))}</script>`,
   ].join('\n');
   const out = read('demo/template.html').replace('<!--INJECT-->', inject);

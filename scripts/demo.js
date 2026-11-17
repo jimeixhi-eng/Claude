@@ -5,7 +5,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 process.env.DATA_DIR ||= path.join(__dirname, '..', 'demo-data');
 
-const { db, saveSettings } = require('../src/db');
+const { db, saveSettings, getSettings } = require('../src/db');
 const auth = require('../src/auth');
 const items = require('../src/items');
 const { parseAny } = require('../src/importer');
@@ -19,7 +19,7 @@ const app = require('../server');
     const owner = { id: 1, name: '店主', role: 'owner' };
     for (const f of ['blog-sample.txt', 'list-sample.csv', 'list-sample.xlsx']) {
       const file = path.join(__dirname, '..', 'samples', f);
-      const { rows } = await parseAny({ buffer: fs.readFileSync(file), filename: f });
+      const { rows } = await parseAny({ buffer: fs.readFileSync(file), filename: f, categories: getSettings().categories });
       items.importRows(owner, rows.map(({ _warnings, ...r }) => r));
     }
     saveSettings({

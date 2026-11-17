@@ -462,7 +462,7 @@
   function renderMore() {
     shell(`
       <div class="menu">
-        ${isOwner() ? '<button data-more="users">スタッフ管理</button><button data-more="settings">店舗情報・サイト設定</button><button data-more="logs">変更履歴</button>' : ''}
+        ${isOwner() ? '<button data-more="admin">パソコン用の店主画面を開く</button><button data-more="users">スタッフ管理</button><button data-more="settings">店舗情報・サイト設定</button><button data-more="logs">変更履歴</button>' : ''}
         <button data-more="install">アプリをホーム画面に追加する方法</button>
         <button data-more="site">公開サイトを見る</button>
         <button data-more="logout">ログアウト</button>
@@ -470,6 +470,7 @@
   }
   const moreActions = {
     site: () => window.open('/', '_blank'),
+    admin: () => window.open('/admin/', '_blank'),
     logout: async () => {
       const pending = loadQueue().length;
       if (!confirm(pending ? `まだ送信されていない操作が${pending}件あります。ログアウトすると失われます。ログアウトしますか？` : 'ログアウトしますか？')) return;

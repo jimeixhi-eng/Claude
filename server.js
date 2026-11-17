@@ -26,6 +26,7 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads'), { maxAge: '30d', immutable: true }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 // スタッフアプリ本体は常に最新を取りに行く（Service Worker が手元に保存するので起動は速い）
+app.use('/admin', express.static(path.join(__dirname, 'admin'), { maxAge: 0, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 app.use('/staff', express.static(path.join(__dirname, 'staff'), { maxAge: 0, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
 // ---------- 公開サイト ----------
@@ -102,6 +103,7 @@ api.post('/items/:no/status', wrap((req, res) => res.json({ item: items.setStatu
 api.get('/next-no', auth.requireOwner, (req, res) => res.json({ no: items.nextNo() }));
 api.post('/items', auth.requireOwner, wrap((req, res) => res.json({ item: items.create(req.user, req.body || {}) })));
 api.patch('/items/:no', auth.requireOwner, wrap((req, res) => res.json({ item: items.update(req.user, req.params.no, req.body || {}) })));
+api.post('/items/bulk', auth.requireOwner, wrap((req, res) => res.json(items.bulk(req.user, req.body?.nos, req.body?.action, req.body?.value))));
 api.delete('/items/:no', auth.requireOwner, wrap((req, res) => { items.remove(req.user, req.params.no); res.json({ ok: true }); }));
 api.post('/items/:no/photos', auth.requireOwner, upload.single('photo'), wrap((req, res) => {
   const it = items.getByNo(req.params.no);

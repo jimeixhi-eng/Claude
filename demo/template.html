@@ -29,6 +29,13 @@ body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
 .try li::before { content: counter(step); flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
 .try b { color: var(--ink); }
 
+.modes { display: flex; gap: 6px; padding-block: 8px 0; flex-wrap: wrap; }
+.modes button { min-height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 700 13px var(--font); cursor: pointer; }
+.modes button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+.admin-stage { padding-block: 12px 24px; display: grid; gap: 10px; }
+.admin-lead { margin: 0; color: var(--muted); max-width: 80ch; }
+.admin-stage .pc-device { width: 100%; border-width: 0; border-radius: 12px; }
+.admin-stage .pc-device .screen { height: min(820px, calc(100vh - 200px)); }
 .switch { display: none; gap: 6px; padding-block: 8px; }
 .switch button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: 700 14px var(--font); }
 .switch button[aria-selected="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
@@ -58,6 +65,8 @@ body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
 
 @media (max-width: 900px) {
   .switch { display: flex; }
+  .switch[data-hidden-by-mode="true"] { display: none; }
+  .admin-stage .pc-device .screen { height: calc(100dvh - 190px); min-height: 520px; }
   .stage, .stage[data-site-mode="pc"] { grid-template-columns: minmax(0, 1fr); gap: 0; padding-block: 0 16px; }
   .panel[data-active="false"] { display: none; }
   .device, .stage[data-site-mode="pc"] .site-device { width: 100%; border-width: 0; border-radius: 14px; }
@@ -78,6 +87,11 @@ body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
     <li>「圏外にしてみる」で電波がないときの動きを確認</li>
   </ol>
 </header>
+
+<div class="wrap modes" role="group" aria-label="見る画面">
+  <button type="button" data-view-mode="shop" aria-pressed="true">公開サイト＋スタッフアプリ</button>
+  <button type="button" data-view-mode="admin" aria-pressed="false">店主のパソコン画面</button>
+</div>
 
 <div class="wrap switch" role="tablist">
   <button type="button" data-show="site" aria-selected="true">公開サイト</button>
@@ -109,6 +123,14 @@ body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font); }
     </div>
   </section>
 </main>
+
+<section class="wrap admin-stage" hidden>
+  <p class="admin-lead">店主がパソコンで在庫をまとめて管理する画面です。価格や状態は表の中でそのまま変えられ、複数にチェックを付けてまとめて変更もできます。ここでの変更も、公開サイトとスタッフアプリにすぐ反映されます。</p>
+  <div class="device pc-device">
+    <div class="urlbar">exotic-supply.jp/admin/</div>
+    <div class="screen" id="adminScreen"></div>
+  </div>
+</section>
 
 <footer class="wrap foot">
   <button type="button" class="tbtn" id="resetDemo">見本データに戻す</button>

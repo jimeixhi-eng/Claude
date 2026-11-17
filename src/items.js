@@ -210,6 +210,30 @@ function remove(user, no) {
   broadcast('item', { id: item.id, no: item.no, status: 'deleted' }, { pid: item.pub_id, status: 'deleted' });
 }
 
+// まとめて変更（店主のパソコン画面から）。action: status / category / ask / delete
+function bulk(user, nos, action, value) {
+  if (user.role !== 'owner') throw new HttpError(403, 'まとめて変更は店主のみ可能です');
+  if (!Array.isArray(nos) || !nos.length) throw new HttpError(400, '生体を選んでください');
+  const result = { changed: 0, errors: [] };
+  tx(() => {
+    for (const no of nos.map(String)) {
+      try {
+        if (action === 'status') setStatus(user, no, value);
+        else if (action === 'category') update(user, no, { category: String(value || '') }, { silent: true });
+        else if (action === 'ask') update(user, no, { price_ask: !!value }, { silent: true });
+        else if (action === 'delete') remove(user, no);
+        else throw new HttpError(400, '操作が不正です');
+        result.changed++;
+      } catch (e) {
+        if (e.status === 400 && /操作が不正/.test(e.message)) throw e;
+        result.errors.push({ no, message: e.message });
+      }
+    }
+  });
+  broadcast('reload', { reason: 'bulk' });
+  return result;
+}
+
 // 一括取り込み（管理番号が同じものは上書き、なければ新規）
 function importRows(user, rows, { newStatus = 'available' } = {}) {
   if (user.role !== 'owner') throw new HttpError(403, '取り込みは店主のみ可能です');
@@ -248,5 +272,5 @@ function todayStats() {
 
 module.exports = {
   HttpError, getByNo, getByPubId, listPublic, listNewArrivals, listStaff, countsPublic, speciesCounts, newArrivalSummary, isNew, setStatus,
-  create, update, remove, importRows, recentLogs, todayStats, nextNo, today,
+  create, update, remove, bulk, importRows, recentLogs, todayStats, nextNo, today,
 };

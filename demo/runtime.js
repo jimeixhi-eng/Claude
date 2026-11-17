@@ -35,7 +35,7 @@
       ],
       logs: [],
       seq: Math.max(...seed.items.map((i) => i.id)) + 1,
-      session: null,
+      sessions: { staff: null, admin: 1 }, // スタッフアプリと店主画面は別々にログインしている扱い
     };
   }
 
@@ -187,22 +187,39 @@
     return it;
   }
 
-  async function handle(method, path, query, body, form) {
-    const user = DB.session && DB.users.find((u) => u.id === DB.session && u.active);
+  async function handle(method, path, query, body, form, client) {
+    const user = DB.sessions[client] && DB.users.find((u) => u.id === DB.sessions[client] && u.active);
     const owner = () => { if (user.role !== 'owner') throw new HttpError(403, 'この操作は店主のみ可能です'); };
     if (path === '/setup-needed') return { needed: false };
     if (path === '/login' && method === 'POST') {
       const u = DB.users.find((x) => x.login === String(body.login || '').trim() && x.active);
       if (!u || u.password !== body.password) throw new HttpError(401, 'IDまたはパスワードが違います');
-      DB.session = u.id;
+      DB.sessions[client] = u.id;
       return { ok: true };
     }
-    if (path === '/logout') { DB.session = null; return { ok: true }; }
+    if (path === '/logout') { DB.sessions[client] = null; return { ok: true }; }
     if (!user) throw new HttpError(401, 'ログインしてください');
     if (path === '/me') return { user: { id: user.id, login: user.login, name: user.name, role: user.role }, limits: LIMITS, categories: DB.settings.categories };
     if (path === '/items' && method === 'GET') return { items: [...DB.items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) };
     if (path === '/items' && method === 'POST') { owner(); return { item: create(user, body) }; }
     if (path === '/next-no') { owner(); return { no: nextNo() }; }
+    if (path === '/items/bulk') {
+      owner();
+      const result = { changed: 0, errors: [] };
+      for (const no of body.nos.map(String)) {
+        try {
+          const it = items.getByNo(no);
+          if (!it) throw new HttpError(404, `管理番号 ${no} は見つかりません`);
+          if (body.action === 'status') setStatus(user, no, body.value);
+          else if (body.action === 'category') update(user, no, { category: body.value }, true);
+          else if (body.action === 'ask') update(user, no, { price_ask: !!body.value }, true);
+          else if (body.action === 'delete') { DB.items = DB.items.filter((i) => i !== it); log(user, it, 'delete'); }
+          result.changed++;
+        } catch (e) { result.errors.push({ no, message: e.message }); }
+      }
+      broadcast('reload', {});
+      return result;
+    }
     let m = path.match(/^\/items\/([^/]+)(\/status|\/photos)?$/);
     if (m) {
       const no = decodeURIComponent(m[1]);
@@ -285,22 +302,23 @@
     throw new HttpError(404, 'Not found');
   }
 
-  async function fakeFetch(url, opts = {}) {
-    if (!net.staffOnline) throw new TypeError('Failed to fetch');
+  // client：'staff'（スタッフアプリ）か 'admin'（店主画面）。圏外のまねはスタッフアプリだけ
+  const makeFetch = (client) => async function fakeFetch(url, opts = {}) {
+    if (client === 'staff' && !net.staffOnline) throw new TypeError('Failed to fetch');
     await new Promise((r) => setTimeout(r, 40)); // 通信の待ち時間をそれらしく
     const u = new URL(url, 'https://demo.local');
     const path = u.pathname.replace(/^\/api/, '');
     const form = opts.body instanceof FormData ? opts.body : null;
     const body = typeof opts.body === 'string' ? JSON.parse(opts.body) : {};
     try {
-      const data = clone(await handle(opts.method || 'GET', path, Object.fromEntries(u.searchParams), body, form));
+      const data = clone(await handle(opts.method || 'GET', path, Object.fromEntries(u.searchParams), body, form, client));
       return { ok: true, status: 200, json: async () => data };
     } catch (e) {
       if (!(e instanceof HttpError)) console.error(e);
       const status = e.status || 500;
       return { ok: false, status, json: async () => ({ error: status >= 500 ? 'サーバーでエラーが発生しました' : e.message }) };
     }
-  }
+  };
 
   // ---------- 画面（Shadow DOM で本番の CSS をそのまま当てる） ----------
   function shadowCss(css) {
@@ -428,7 +446,8 @@
         addEventListener: (...a) => root.addEventListener(...a),
         get activeElement() { return root.activeElement; },
       },
-      fetch: fakeFetch,
+      fetch: makeFetch('staff'),
+      openAdmin: () => showMode('admin'),
       EventSource: class extends FakeEventSource { constructor() { super('staff'); sources.push(this); } },
       localStorage: { getItem: (k) => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, String(v)), removeItem: (k) => memory.delete(k) },
       confirm: () => true, // デモでは確認ダイアログを省略
@@ -443,6 +462,48 @@
     startStaff(staffEnv);
   }
 
+  // ---------- 店主のパソコン画面 ----------
+  let adminEnv = null;
+  function startAdminApp() {
+    adminEnv?.dispose();
+    const old = document.getElementById('adminScreen');
+    const host = old.cloneNode(false);
+    old.replaceWith(host);
+    const { root, body } = mount(host, __ES.cssAdmin);
+    body.innerHTML = __ES.adminBody;
+    // 「公開サイトを見る」などのリンクは、デモ内の公開サイトに切り替える
+    root.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href^="/"]');
+      if (a) { e.preventDefault(); showMode('shop'); showPanel('site'); navigate(a.getAttribute('href')); }
+    }, true);
+    const sources = [];
+    adminEnv = {
+      document: {
+        getElementById: (id) => root.getElementById(id),
+        querySelector: (q) => root.querySelector(q),
+        querySelectorAll: (q) => root.querySelectorAll(q),
+        createElement: (t) => document.createElement(t),
+        body: { append: (...els) => body.append(...els), appendChild: (el) => body.appendChild(el) },
+        addEventListener: (...a) => root.addEventListener(...a),
+        get activeElement() { return root.activeElement; },
+      },
+      fetch: makeFetch('admin'),
+      EventSource: class extends FakeEventSource { constructor() { super('admin'); sources.push(this); } },
+      confirm: () => true,
+      prompt: () => null,
+      saveFile: (name) => toastOuter(`「${name}」を書き出しました（デモではファイルは保存されません）`),
+      dispose: () => sources.forEach((x) => x.close()),
+    };
+    startAdmin(adminEnv);
+  }
+  function showMode(mode) {
+    document.querySelectorAll('[data-view-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.viewMode === mode)));
+    document.querySelector('.stage').hidden = mode !== 'shop';
+    document.querySelector('.switch').dataset.hiddenByMode = String(mode !== 'shop');
+    document.querySelector('.admin-stage').hidden = mode !== 'admin';
+    if (mode === 'admin' && !adminEnv) requestAnimationFrame(startAdminApp);
+  }
+
   // ---------- デモの操作パネル ----------
   function toastOuter(msg) {
     const t = document.getElementById('demoToast');
@@ -450,7 +511,7 @@
     clearTimeout(toastOuter.t); toastOuter.t = setTimeout(() => { t.hidden = true; }, 2600);
   }
   function loginAs(login) {
-    DB.session = DB.users.find((u) => u.login === login).id;
+    DB.sessions.staff = DB.users.find((u) => u.login === login).id;
     document.querySelectorAll('[data-login]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.login === login)));
     startStaffApp();
   }
@@ -479,10 +540,11 @@
     else if (t.id === 'netToggle') setOnline(!net.staffOnline);
     else if (t.dataset.show) showPanel(t.dataset.show);
     else if (t.dataset.mode) setSiteMode(t.dataset.mode);
-    else if (t.id === 'resetDemo') { resetDb(); setOnline(true); site.route = '/'; startSite(); loginAs('staff1'); toastOuter('見本データに戻しました'); }
+    else if (t.dataset.viewMode) showMode(t.dataset.viewMode);
+    else if (t.id === 'resetDemo') { resetDb(); setOnline(true); site.route = '/'; startSite(); loginAs('staff1'); if (adminEnv) startAdminApp(); toastOuter('見本データに戻しました'); }
   });
   addEventListener('resize', () => {
-    for (const id of ['siteScreen', 'staffScreen']) { const h = document.getElementById(id); h.style.setProperty('--screen-h', `${h.clientHeight}px`); }
+    for (const id of ['siteScreen', 'staffScreen', 'adminScreen']) { const h = document.getElementById(id); h.style.setProperty('--screen-h', `${h.clientHeight}px`); }
   });
 
   resetDb();
