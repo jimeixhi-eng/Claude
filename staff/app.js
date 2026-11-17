@@ -158,8 +158,8 @@
     if (actions) {
       const b = (act, cls, label) => `<button class="act ${cls}" data-act="${act}" data-no="${esc(it.no)}">${label}</button>`;
       btns = {
-        available: b('sold', 'sell', '売約済みにする') + b('done', 'done', '販売済み'),
-        sold: b('done', 'done', '販売済みにする') + b('available', 'sub', '販売中に戻す'),
+        available: b('done', 'primary', '販売済みにする') + b('sold', 'reserve', '売約'),
+        sold: b('done', 'primary', '販売済みにする') + b('available', 'sub', '販売中に戻す'),
         done: b('available', 'back', '販売中に戻す'),
         hidden: b('available', 'back', '販売中にする（公開）'),
       }[it.status] || '';
