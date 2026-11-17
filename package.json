@@ -13,12 +13,14 @@
     "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "demo": "node --disable-warning=ExperimentalWarning scripts/demo.js",
-    "build:demo": "node --disable-warning=ExperimentalWarning scripts/build-demo.js"
+    "build:demo": "node --disable-warning=ExperimentalWarning scripts/build-demo.js",
+    "build:guide": "node --disable-warning=ExperimentalWarning scripts/build-guide.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
     "express": "^4.22.3",
-    "multer": "^2.5.0"
+    "multer": "^2.5.0",
+    "qrcode": "^1.5.4"
   },
   "overrides": {
     "uuid": "^11.1.1"

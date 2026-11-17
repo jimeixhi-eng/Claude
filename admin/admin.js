@@ -66,6 +66,7 @@
         <div class="brand"><img src="/img/icon.svg" alt=""><div><b>エキゾチックサプライ</b><small>店主画面</small></div></div>
         ${NAV.map(([k, l]) => `<button type="button" data-view="${k}"${state.view === k ? ' aria-current="page"' : ''}>${l}${k === 'stock' ? `<span class="count">${counts.available}</span>` : ''}</button>`).join('')}
         <div class="spacer"></div>
+        <a href="/staff-guide" target="_blank" rel="noopener">スタッフ向け手順書（印刷） ↗</a>
         <a href="/" target="_blank" rel="noopener">公開サイトを見る ↗</a>
         <button type="button" data-logout>ログアウト</button>
         <p class="who">${esc(state.me.name)} でログイン中</p>
@@ -423,7 +424,8 @@
           ${users.map((u) => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.login)}</td><td>${u.role === 'owner' ? '店主' : 'スタッフ'}</td><td>${u.active ? '利用中' : '<span class="warn">停止中</span>'}</td>
             <td><form class="pw" data-pw="${u.id}" style="display:flex;gap:4px"><input name="password" placeholder="新しいパスワード" minlength="6" style="width:150px;min-height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px"><button class="btn">変更</button></form></td>
             <td><button type="button" class="btn${u.active ? ' danger' : ''}" data-toggle="${u.id}" data-active="${u.active}">${u.active ? '停止する' : '再開する'}</button></td></tr>`).join('')}
-        </tbody></table></div><p class="note">辞めたスタッフは「停止する」を押すと、その場でアプリが使えなくなります。</p></div>
+        </tbody></table></div><p class="note">辞めたスタッフは「停止する」を押すと、その場でアプリが使えなくなります。</p>
+          <p class="note">新しいスタッフには、IDとパスワードを伝えて <a href="/staff-guide" target="_blank" rel="noopener">スタッフ向け手順書</a> を渡してください（印刷するか、アドレスをLINEで送る）。</p></div>
         <form class="card" id="addUser" autocomplete="off"><h2>アカウントを追加</h2>
           <label class="field"><span>表示名</span><input name="name" required placeholder="山田"></label>
           <label class="field"><span>ログインID（半角英数）</span><input name="login" required placeholder="yamada" autocapitalize="off"></label>

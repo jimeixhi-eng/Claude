@@ -110,6 +110,8 @@ function adminApp() {
   let src = read('admin/admin.js');
   const swaps = [
     ['function saveFile(name, blob) {', 'function saveFile(name, blob) {\n    if (env.saveFile) return env.saveFile(name, blob);'],
+    // デモでは手順書を見本ページ（別の公開ページ）で開く
+    ['href="/staff-guide"', 'href="https://claude.ai/artifact/VdTFbUyKx6iH8H6JcYaDmf"'],
   ];
   for (const [from, to] of swaps) {
     if (!src.includes(from)) throw new Error(`admin/admin.js に「${from}」が見つかりません`);

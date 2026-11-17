@@ -9,6 +9,7 @@ const views = require('./src/views');
 const realtime = require('./src/realtime');
 const importer = require('./src/importer');
 const { scheduleBackups } = require('./src/backup');
+const { renderGuide } = require('./src/guide');
 
 const app = express();
 app.disable('x-powered-by');
@@ -29,6 +30,8 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use('/admin', express.static(path.join(__dirname, 'admin'), { maxAge: 0, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 app.use('/staff', express.static(path.join(__dirname, 'staff'), { maxAge: 0, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
+const wrap = (fn) => (req, res, next) => { try { const r = fn(req, res); if (r?.catch) r.catch(next); } catch (e) { next(e); } };
+
 // ---------- 公開サイト ----------
 const html = (res, body, status = 200) => res.status(status).type('html').setHeader('Cache-Control', 'no-cache').send(body);
 app.get('/', (req, res) => html(res, views.home(getSettings())));
@@ -45,6 +48,8 @@ app.get('/events', (req, res) => realtime.subscribe(req, res)); // 公開ペー�
 
 // 検索エンジン向け
 const siteUrl = (req) => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+// スタッフ向け手順書（QR コードはこのサーバーのアドレスで作る）
+app.get('/staff-guide', wrap(async (req, res) => html(res, await renderGuide(getSettings(), `${siteUrl(req)}/staff/`))));
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(`User-agent: *\nDisallow: /staff/\nDisallow: /api/\nSitemap: ${siteUrl(req)}/sitemap.xml\n`);
 });
@@ -56,7 +61,6 @@ app.get('/sitemap.xml', (req, res) => {
 
 // ---------- スタッフ用 API ----------
 const api = express.Router();
-const wrap = (fn) => (req, res, next) => { try { const r = fn(req, res); if (r?.catch) r.catch(next); } catch (e) { next(e); } };
 
 api.get('/setup-needed', (req, res) => res.json({ needed: db.prepare('SELECT COUNT(*) n FROM users').get().n === 0 }));
 

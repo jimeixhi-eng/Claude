@@ -209,3 +209,12 @@ test('販売済みにするとサイトから消える', async () => {
   assert.doesNotMatch(await (await fetch(`${base}/stock`)).text(), new RegExp(it.pub_id));
   assert.equal((await fetch(`${base}/item/${it.pub_id}`)).status, 404);
 });
+
+test('スタッフ向け手順書（QRコード付き）', async () => {
+  const res = await fetch(`${base}/staff-guide`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /<svg/);
+  assert.match(html, /\/staff\//);
+  assert.match(html, /販売済みにする/);
+});

@@ -1,0 +1,141 @@
+<title>ES在庫 スタッフ用手順書</title>
+<style>
+:root { --ink: #222; --muted: #666; --line: #d9d9d9; --green: #55bc6a; --green-ink: #2f8f45; --red: #c2412d; --amber: #c8952e; --soft: #f2f8f3; --paper: #fff; --desk: #e9ebe9; color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 14px/1.65 "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif; }
+.sheet { background: var(--paper); max-width: 210mm; margin: 24px auto; padding: 14mm 14mm 12mm; box-shadow: 0 2px 14px rgb(0 0 0 / .12); }
+.sheet + .sheet { margin-top: 18px; }
+.print-bar { max-width: 210mm; margin: 16px auto 0; padding: 0 16px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.print-bar button { border: 0; background: var(--green-ink); color: #fff; font: inherit; font-weight: 700; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+header.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 4px solid var(--green); padding-bottom: 8px; margin-bottom: 14px; }
+header.top h1 { margin: 0; font-size: 24px; letter-spacing: .02em; }
+header.top p { margin: 0; color: var(--muted); font-size: 12px; text-align: right; }
+.lead { margin: 0 0 14px; font-size: 15px; }
+.lead b { color: var(--green-ink); }
+h2 { display: flex; align-items: center; gap: 8px; font-size: 17px; margin: 18px 0 8px; border-left: 6px solid var(--green); padding-left: 10px; break-after: avoid; }
+h2 .step { background: var(--green); color: #fff; font-size: 13px; border-radius: 4px; padding: 0 8px; }
+p { margin: 0 0 8px; }
+ol, ul { margin: 0 0 8px; padding-left: 22px; }
+li { margin: 3px 0; }
+.box { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; break-inside: avoid; }
+.install { display: grid; grid-template-columns: 150px 1fr 1fr; gap: 14px; align-items: start; }
+.qr { text-align: center; }
+.qr svg { width: 140px; height: 140px; display: block; margin: 0 auto 4px; }
+.qr small { display: block; font-size: 11px; word-break: break-all; color: var(--muted); }
+.os h3 { margin: 0 0 4px; font-size: 14px; }
+.os ol { font-size: 13px; }
+.warn { background: #fff7e6; border: 1px solid #f0d49a; border-radius: 8px; padding: 8px 12px; font-size: 13px; break-inside: avoid; }
+.warn b { color: #8a5a00; }
+.main-op { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+/* アプリの画面を簡単に描いた見本 */
+.mock { border: 2px solid #333; border-radius: 16px; padding: 10px; background: #f2f4f2; font-size: 12px; break-inside: avoid; }
+.mock .in { background: #fff; border: 2px solid var(--green-ink); border-radius: 10px; padding: 6px 10px; font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+.mock .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.mock .row { display: flex; justify-content: space-between; align-items: baseline; }
+.mock .no { font-weight: 800; font-size: 14px; }
+.mock .pill { font-size: 10px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: #e6f4ea; color: var(--green-ink); }
+.mock .btns { display: flex; gap: 6px; margin-top: 8px; }
+.mock .b { flex: 1; text-align: center; border-radius: 8px; padding: 7px 4px; font-weight: 800; position: relative; }
+.mock .b.primary { background: var(--green-ink); color: #fff; }
+.mock .b.reserve { flex: 0 0 auto; padding: 7px 12px; border: 2px solid var(--amber); color: var(--amber); }
+.mock .b.sub { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--line); color: var(--muted); }
+.mock .tap { position: absolute; right: -6px; top: -12px; background: var(--red); color: #fff; font-size: 10px; border-radius: 999px; padding: 1px 6px; }
+.mock .toast { margin-top: 8px; background: #1c1f1d; color: #fff; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.mock .toast span:last-child { background: var(--amber); color: #1b1a12; font-weight: 800; border-radius: 5px; padding: 2px 6px; }
+.flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 10px; }
+.flow div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; break-inside: avoid; }
+.flow b { display: block; font-size: 13px; }
+.flow .a b { color: var(--green-ink); } .flow .s b { color: var(--red); } .flow .d b { color: #333; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; break-inside: avoid; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: var(--soft); width: 32%; }
+.foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 720px) {
+  .sheet { margin: 0; padding: 18px 16px; box-shadow: none; }
+  .sheet + .sheet { margin-top: 0; border-top: 8px solid var(--desk); }
+  .install, .main-op, .flow { grid-template-columns: minmax(0, 1fr); }
+  .qr svg { width: 160px; height: 160px; }
+}
+@page { size: A4; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .print-bar { display: none; }
+  .sheet { box-shadow: none; margin: 0 auto; page-break-after: always; }
+  .sheet:last-child { page-break-after: auto; }
+}</style>
+
+<div class="print-bar"><span>※ 見本です。QRコードは例のアドレスです。本番では店主画面の「スタッフ向け手順書」から、実際のアドレスのQRコード付きで印刷できます。</span></div>
+
+<section class="sheet">
+  <header class="top"><h1>ES在庫アプリ　スタッフ用手順書</h1><p>エキゾチックサプライ<br>在庫管理アプリ</p></header>
+  <p class="lead">生体が<b>売れたら「販売済み」</b>、<b>取り置きなら「売約」</b>をアプリで押します。押した瞬間にお店のホームページの在庫が変わります。</p>
+
+  <h2><span class="step">1</span>アプリを入れる（最初の1回だけ・1分）</h2>
+  <div class="install box">
+    <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h29v29H0z"/><path stroke="#000000" d="M0 0.5h7m2 0h1m1 0h1m4 0h1m2 0h2m1 0h7M0 1.5h1m5 0h1m2 0h1m1 0h5m4 0h1m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h2m6 0h1m2 0h1m2 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h1m3 0h2m1 0h1m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m2 0h1m2 0h2m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m1 0h4m1 0h4m1 0h1m1 0h1m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h5m1 0h2m2 0h1m1 0h1M0 8.5h1m1 0h5m2 0h1m1 0h1m3 0h1m1 0h1m1 0h1m2 0h5M2 9.5h2m1 0h1m3 0h3m1 0h1m2 0h1m2 0h1m1 0h4m3 0h1M1 10.5h1m1 0h1m1 0h2m2 0h1m2 0h4m2 0h1m1 0h1m1 0h2M0 11.5h1m6 0h5m1 0h1m1 0h2m1 0h2m2 0h1m2 0h1m1 0h1M3 12.5h2m1 0h2m1 0h1m4 0h4m3 0h1m3 0h2M3 13.5h3m2 0h1m2 0h1m4 0h9m3 0h1M2 14.5h3m1 0h3m6 0h2m3 0h1m1 0h5M0 15.5h1m1 0h2m6 0h1m3 0h1m3 0h1m2 0h2m4 0h1M0 16.5h1m2 0h1m2 0h1m1 0h2m2 0h1m2 0h3m1 0h1m5 0h2M0 17.5h5m2 0h1m1 0h2m2 0h2m1 0h2m1 0h6m1 0h1m1 0h1M0 18.5h1m1 0h2m1 0h5m3 0h4m1 0h1m4 0h2m1 0h1M0 19.5h1m2 0h1m5 0h1m1 0h3m2 0h1m3 0h1m3 0h1m2 0h1M0 20.5h1m2 0h2m1 0h1m1 0h4m2 0h1m2 0h2m1 0h5m1 0h3M8 21.5h2m7 0h4m3 0h5M0 22.5h7m5 0h1m2 0h3m1 0h2m1 0h1m1 0h3M0 23.5h1m5 0h1m1 0h1m1 0h3m1 0h3m1 0h3m3 0h1m2 0h2M0 24.5h1m1 0h3m1 0h1m1 0h2m2 0h1m4 0h1m2 0h5m1 0h1M0 25.5h1m1 0h3m1 0h1m1 0h2m3 0h2m1 0h1m1 0h3m4 0h4M0 26.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m1 0h6M0 27.5h1m5 0h1m2 0h2m5 0h1m3 0h3m2 0h1m1 0h1M0 28.5h7m1 0h2m2 0h2m3 0h1m1 0h1m1 0h1m3 0h2"/></svg>
+<small>https://zaiko.exotic-supply.com/staff/</small></div>
+    <div class="os"><h3>iPhone</h3><ol>
+      <li>カメラでQRコードを読み、<b>Safari</b>で開く</li>
+      <li>画面下の共有ボタン（□に↑）を押す</li>
+      <li>「<b>ホーム画面に追加</b>」→ 右上の「追加」</li>
+      <li>ホーム画面の「<b>ES在庫</b>」から開く</li></ol></div>
+    <div class="os"><h3>Android</h3><ol>
+      <li>カメラでQRコードを読み、<b>Chrome</b>で開く</li>
+      <li>右上の「︙」を押す</li>
+      <li>「<b>アプリをインストール</b>」（または「ホーム画面に追加」）</li>
+      <li>ホーム画面の「<b>ES在庫</b>」から開く</li></ol></div>
+  </div>
+  <p class="warn"><b>LINEで届いたURLを開いた場合：</b>LINEの中の画面では「ホーム画面に追加」が出ません。右下（または右上）のメニューから「<b>ブラウザで開く</b>」を選び、SafariかChromeで開き直してください。アプリストアからのダウンロードは不要です。</p>
+
+  <h2><span class="step">2</span>ログインする（最初の1回だけ）</h2>
+  <p>ログインIDとパスワードは<b>店主から一人ずつ</b>もらいます。一度ログインすれば、その後はアプリを開くだけで使えます（約半年そのまま）。IDとパスワードは人に教えないでください。</p>
+
+  <h2><span class="step">3</span>生体が売れたとき（いちばん大事）</h2>
+  <div class="main-op">
+    <div>
+      <ol>
+        <li>アプリを開き、上の欄に<b>管理番号</b>を入れる</li>
+        <li>出てきた生体の種名とモルフが合っているか確かめる</li>
+        <li>緑の「<b>販売済みにする</b>」を押す</li>
+      </ol>
+      <p>押すとホームページから、その生体が<b>すぐ消えます</b>。入力欄は空になるので、続けて次の番号を入れられます。</p>
+      <p><b>押し間違えたら</b>：画面下に出る「<b>取り消す</b>」を8秒以内に押します。過ぎてしまったら、もう一度番号を入れて「販売中に戻す」を押します。</p>
+    </div>
+    <div class="mock" aria-label="アプリの画面の見本">
+      <div class="in">101</div>
+      <div class="card"><div class="row"><span class="no">No.101</span><span class="pill">販売中</span></div>
+        <div>ヒョウモントカゲモドキ</div><div style="color:#666">ハイポタンジェリン / ♂ / ベビー</div>
+        <div class="btns"><span class="b primary">販売済みにする<span class="tap">ここを押す</span></span><span class="b reserve">売約</span></div></div>
+      <div class="toast"><span>No.101 を「販売済み」にしました</span><span>取り消す</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet">
+  <h2><span class="step">4</span>取り置き（売約）のとき</h2>
+  <p>お客様が代金を払って後日引き取る、イベントで取り置く、などのときは「<b>売約</b>」を押します。ホームページには「売約済み」と表示され、ほかのお客様にも売れたことが分かります。</p>
+  <div class="flow">
+    <div class="a"><b>販売中</b>ホームページに出ている</div>
+    <div class="s"><b>売約済み</b>「売約」を押す → ホームページに「売約済み」と出る</div>
+    <div class="d"><b>販売済み</b>お渡ししたら「販売済みにする」→ ホームページから消える</div>
+  </div>
+  <p><b>お渡しが終わったら必ず「販売済みにする」を押してください。</b>押し忘れると、ホームページに「売約済み」が残り続けます。アプリ上部の「売約済み」の数字が、お渡し待ちの数です。</p>
+
+  <h2><span class="step">5</span>お客様から問い合わせがあったとき</h2>
+  <p>ホームページには管理番号は出ていません。お客様は生体ページの「<b>お問い合わせコード</b>」（英数字6文字。例：<b>4BDFZQ</b>）を伝えてきます。アプリの上の欄にこのコードを入れると、その生体が出てきます。</p>
+  <p class="warn"><b>管理番号はお店の中だけの番号です。</b>お客様には伝えないでください。</p>
+
+  <h2><span class="step">6</span>電波がないとき（イベント会場など）</h2>
+  <p>圏外でも、管理番号を入れて「販売済みにする」を押せます。画面下に「<b>送信待ち ○件</b>」と出て、<b>電波が戻ると自動で送信</b>されます。送信待ちが残っている間は、<b>ログアウトしないでください</b>（送信前の操作が消えます）。</p>
+
+  <h2><span class="step">7</span>困ったとき</h2>
+  <table>
+    <tr><th>アイコンを消してしまった・機種変更した</th><td>1と同じ手順でもう一度入れてください。</td></tr>
+    <tr><th>ログインできない・パスワードを忘れた</th><td>店主（080-5349-3261）に連絡してください。新しいパスワードを発行します。</td></tr>
+    <tr><th>番号を入れても生体が出てこない</th><td>番号の打ち間違いがないか確認してください。まだ登録されていない生体の可能性もあるので、店主に伝えてください。</td></tr>
+    <tr><th>価格や種名が間違っている</th><td>スタッフのアプリでは変更できません。店主に伝えてください。</td></tr>
+    <tr><th>画面が古いまま・動きがおかしい</th><td>アプリを一度閉じて開き直してください。直らなければ店主に連絡してください。</td></tr>
+  </table>
+
+  <div class="foot"><span>エキゾチックサプライ　ES在庫アプリ</span><span>アプリのアドレス：https://zaiko.exotic-supply.com/staff/</span></div>
+</section>
